@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ujian Biologi - Sistem Pencernaan SMAN 1 Cipatat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Styles */
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .hidden-step { display: none !important; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .option-label { cursor: pointer; transition: all 0.2s; }
+        .option-label:hover { background-color: #f3f4f6; }
+        
+        /* Custom Checkbox/Radio */
+        .custom-control { display: inline-flex; align-items: center; width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; }
+        input[type="radio"]:checked + .custom-control,
+        input[type="checkbox"]:checked + .custom-control { border-color: #3b82f6; background-color: #eff6ff; }
+        
+        /* Fullscreen Modal Override */
+        #warning-modal { z-index: 9999; }
+    </style>
+</head>
+<body class="text-gray-800 antialiased h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-md py-4 px-6 flex justify-between items-center z-10">
+        <div>
+            <h1 class="text-xl font-bold">SMAN 1 Cipatat</h1>
+            <p class="text-sm opacity-80">Ulangan Biologi Kelas XI - Sistem Pencernaan Makanan</p>
+        </div>
+        <div id="student-info-display" class="hidden text-right">
+            <span id="display-name" class="font-semibold block"></span>
+            <span id="display-class" class="text-sm bg-blue-500 px-2 py-1 rounded"></span>
+        </div>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center p-4">
+        
+        <!-- STEP 1: LOGIN FORM -->
+        <div id="step-login" class="glass-panel w-full max-w-md p-8 rounded-2xl shadow-xl">
+            <div class="text-center mb-8">
+                <img src="https://tse2.mm.bing.net/th/id/OIP.v9_GpVlRZRnZlLtB84GlYAHaIm?rs=1&pid=ImgDetMain&o=7&rm=3" alt="Logo SMAN 1 Cipatat" class="w-24 h-auto mx-auto mb-4 drop-shadow-sm" onerror="this.style.display='none'">
+                <h2 class="text-2xl font-bold text-gray-800">Mulai Ujian</h2>
+                <p class="text-sm text-gray-500 mt-2">Pastikan identitas Anda benar. Layar akan dikunci (Fullscreen) selama ujian berlangsung.</p>
+            </div>
+            <form id="login-form" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                    <input type="text" id="input-name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Masukkan nama Anda">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
+                    <select id="input-class" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">Pilih Kelas</option>
+                        <option value="XI MIPA 1">XI MIPA 1</option>
+                        <option value="XI MIPA 2">XI MIPA 2</option>
+                        <option value="XI MIPA 3">XI MIPA 3</option>
+                        <option value="XI MIPA 4">XI MIPA 4</option>
+                    </select>
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2">
+                        Mulai Mengerjakan
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- STEP 2: QUIZ -->
+        <div id="step-quiz" class="hidden-step w-full max-w-4xl flex flex-col h-full py-4">
+            <!-- Progress Bar -->
+            <div class="bg-white p-4 rounded-xl shadow-sm mb-4 flex justify-between items-center">
+                <span class="font-medium text-gray-600">Soal <span id="current-q-num">1</span> dari <span id="total-q-num">30</span></span>
+                <div class="w-1/2 bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 3.33%"></div>
+                </div>
+                <span id="unanswered-badge" class="text-xs font-semibold px-2 py-1 bg-yellow-100 text-yellow-700 rounded-md">Belum Dijawab</span>
+            </div>
+
+            <!-- Question Container -->
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-sm flex-grow overflow-y-auto mb-4 relative">
+                <div id="question-type-badge" class="absolute top-4 right-4 text-xs font-bold px-2 py-1 bg-blue-100 text-blue-700 rounded uppercase">Pilihan Ganda</div>
+                <h3 id="question-text" class="text-lg md:text-xl font-medium text-gray-800 mb-6 pr-24 mt-2">Pertanyaan akan muncul di sini...</h3>
+                <div id="options-container" class="space-y-3">
+                    <!-- Options injected here by JS -->
+                </div>
+            </div>
+
+            <!-- Navigation Controls -->
+            <div class="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
+                <button id="btn-prev" class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    &larr; Sebelumnya
+                </button>
+                <button id="btn-next" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Selanjutnya &rarr;
+                </button>
+                <button id="btn-submit" class="hidden-step px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-bold">
+                    Selesai & Kumpulkan
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 3: RESULT -->
+        <div id="step-result" class="hidden-step glass-panel w-full max-w-md p-8 rounded-2xl shadow-xl text-center">
+            <div id="loading-submit" class="py-10">
+                <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-gray-600">Mengirim hasil jawaban...</p>
+            </div>
+            
+            <div id="score-display" class="hidden-step">
+                <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">Ujian Selesai!</h2>
+                <p class="text-gray-500 mb-6 mt-1">Terima kasih telah mengerjakan dengan jujur.</p>
+                
+                <div class="bg-gray-50 rounded-xl p-6 border border-gray-100 mb-6">
+                    <p class="text-sm text-gray-500 uppercase tracking-wide font-semibold mb-1">Skor Akhir Anda</p>
+                    <p id="final-score" class="text-5xl font-black text-blue-600">0</p>
+                </div>
+
+                <div class="text-left text-sm text-gray-600 bg-red-50 p-4 rounded-lg mb-6 border border-red-100" id="cheat-result-container">
+                    <span class="font-semibold text-red-600">Catatan Sistem:</span> Terdeteksi <span id="final-cheat-count" class="font-bold">0</span> kali aktivitas mencurigakan (keluar layar/tab).
+                </div>
+                
+                <p class="text-xs text-gray-400">Data telah tersimpan di sistem sekolah.</p>
+                <p id="submit-error-msg" class="text-xs text-red-500 mt-2 font-semibold hidden-step">Peringatan: Koneksi bermasalah, data gagal terkirim ke server namun skor Anda sudah tampil di layar.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-sm text-gray-500">
+        @SMAN 1 Cipatat 2026
+    </footer>
+
+    <!-- Warning Modal (Anti-Cheat) -->
+    <div id="warning-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden-step backdrop-blur-sm">
+        <div class="bg-white p-8 rounded-2xl max-w-md w-full mx-4 shadow-2xl transform scale-105 transition-transform text-center border-t-8 border-red-500">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">PERINGATAN!</h3>
+            <p class="text-gray-600 mb-6">Anda terdeteksi keluar dari layar ujian atau membuka tab lain. Tindakan ini dicatat sebagai indikasi kecurangan.</p>
+            <button id="btn-close-warning" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                Saya Mengerti, Kembali ke Ujian
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Submit Confirmation Modal -->
+    <div id="submit-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden-step backdrop-blur-sm z-[9999]">
+        <div class="bg-white p-8 rounded-2xl max-w-md w-full mx-4 shadow-xl text-center">
+            <div class="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Konfirmasi Pengumpulan</h3>
+            <p class="text-gray-600 mb-6" id="submit-modal-text">Apakah Anda yakin telah selesai dan ingin mengirim jawaban?</p>
+            <div class="flex gap-4 justify-center">
+                <button id="btn-cancel-submit" class="w-1/2 px-5 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold transition">Batal</button>
+                <button id="btn-confirm-submit" class="w-1/2 px-5 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold transition">Ya, Kumpulkan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** * KONFIGURASI URL GOOGLE APPS SCRIPT
+         * Ganti URL di bawah ini dengan URL Web App Google Apps Script Anda 
+         */
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbypPOBLVdwMoLcoLoDsdg6Q_AOLGblkCVd9CZMpFUqGIFbbS4vqpAF7iOtjU_axMYcwSA/exec'; 
+
+        // --- Question Data (30 Soal Sistem Pencernaan) ---
+        const questions = [
+            // Pilihan Ganda Biasa (1-10)
+            { type: 'single', label: 'Pilihan Ganda', q: 'Proses pencernaan kimiawi pertama kali terjadi di bagian...', options: ['Mulut', 'Kerongkongan', 'Lambung', 'Usus Halus', 'Usus Besar'], correct: 'Mulut' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Enzim ptialin yang terdapat pada air liur berfungsi untuk mengubah...', options: ['Protein menjadi asam amino', 'Lemak menjadi asam lemak', 'Amilum menjadi glukosa/maltosa', 'Pepton menjadi asam amino', 'Kaseinogen menjadi kasein'], correct: 'Amilum menjadi glukosa/maltosa' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Gerak meremas-remas makanan yang terjadi pada kerongkongan disebut gerak...', options: ['Mekanik', 'Peristaltik', 'Kimiawi', 'Otonom', 'Refleks'], correct: 'Peristaltik' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Asam klorida (HCl) yang dihasilkan oleh lambung berfungsi untuk...', options: ['Mencerna karbohidrat', 'Membunuh bakteri dan mengaktifkan pepsinogen', 'Menyerap sari makanan', 'Memecah lemak', 'Menghancurkan selulosa'], correct: 'Membunuh bakteri dan mengaktifkan pepsinogen' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Organ pencernaan yang berfungsi sebagai tempat penyerapan sari-sari makanan utama adalah...', options: ['Usus dua belas jari', 'Usus kosong', 'Usus penyerapan (Ileum)', 'Usus besar', 'Lambung'], correct: 'Usus penyerapan (Ileum)' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Empedu yang dihasilkan oleh hati berperan penting dalam proses...', options: ['Pencernaan protein', 'Emulsi lemak', 'Penyerapan vitamin larut air', 'Penguraian amilum', 'Pembentukan sel darah merah'], correct: 'Emulsi lemak' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Bakteri Escherichia coli yang hidup bersimbiosis di dalam usus besar manusia berfungsi membantu...', options: ['Pembusukan sisa makanan dan pembentukan vitamin K', 'Penyerapan air', 'Pencernaan selulosa', 'Membunuh bakteri patogen', 'Penyerapan asam amino'], correct: 'Pembusukan sisa makanan dan pembentukan vitamin K' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Penyakit peradangan pada selaput lendir lambung yang sering disebabkan oleh pola makan tidak teratur disebut...', options: ['Apendisitis', 'Diare', 'Sembelit', 'Gastritis (Maag)', 'Parotitis'], correct: 'Gastritis (Maag)' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Gigi seri pada sistem pencernaan manusia berfungsi utama untuk...', options: ['Menggigit dan memotong makanan', 'Merobek makanan', 'Mengunyah dan menghaluskan makanan', 'Mencerna makanan secara kimiawi', 'Merasakan tekstur makanan'], correct: 'Menggigit dan memotong makanan' },
+            { type: 'single', label: 'Pilihan Ganda', q: 'Fungsi utama dari jonjot usus (vili) pada dinding usus halus adalah...', options: ['Menghasilkan enzim pencernaan', 'Memperluas permukaan penyerapan', 'Menggerakkan makanan', 'Menghancurkan sisa makanan', 'Menyerap air dalam jumlah besar'], correct: 'Memperluas permukaan penyerapan' },
+
+            // Pilihan Ganda Majemuk (Pilih Lebih Dari Satu) (11-20)
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Pilih organ yang secara langsung dilewati makanan dalam saluran pencernaan manusia! (Pilih 3)', options: ['Kerongkongan', 'Hati', 'Lambung', 'Pankreas', 'Usus Halus'], correct: ['Kerongkongan', 'Lambung', 'Usus Halus'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Enzim-enzim apa saja yang diproduksi oleh getah pankreas? (Pilih 3)', options: ['Amilase pankreas', 'Pepsin', 'Tripsin', 'Lipase pankreas', 'Ptialin'], correct: ['Amilase pankreas', 'Tripsin', 'Lipase pankreas'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Manakah dari berikut ini yang merupakan fungsi hati dalam kaitannya dengan pencernaan? (Pilih 2)', options: ['Menghasilkan cairan empedu', 'Menghasilkan enzim amilase', 'Menetralkan racun dalam makanan', 'Menyerap sari makanan', 'Mencerna protein'], correct: ['Menghasilkan cairan empedu', 'Menetralkan racun dalam makanan'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Proses pencernaan mekanik terjadi pada organ...', options: ['Mulut (oleh gigi)', 'Kerongkongan', 'Lambung (oleh otot lambung)', 'Usus Halus', 'Usus Besar'], correct: ['Mulut (oleh gigi)', 'Lambung (oleh otot lambung)'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Gangguan pencernaan yang disebabkan oleh infeksi bakteri atau virus adalah... (Pilih 2)', options: ['Diare', 'Sembelit', 'Tukak Lambung (oleh H. pylori)', 'Obesitas', 'Avitaminosis'], correct: ['Diare', 'Tukak Lambung (oleh H. pylori)'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Zat makanan yang berfungsi sebagai penghasil energi utama bagi tubuh adalah... (Pilih 2)', options: ['Karbohidrat', 'Vitamin', 'Lemak', 'Mineral', 'Air'], correct: ['Karbohidrat', 'Lemak'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Vitamin yang larut dalam lemak adalah... (Pilih 3)', options: ['Vitamin A', 'Vitamin B', 'Vitamin C', 'Vitamin D', 'Vitamin E'], correct: ['Vitamin A', 'Vitamin D', 'Vitamin E'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Faktor-faktor yang dapat memicu sembelit (konstipasi) adalah... (Pilih 2)', options: ['Kurang konsumsi serat', 'Minum terlalu banyak air', 'Menahan buang air besar', 'Infeksi bakteri E. coli berlebih', 'Kelebihan vitamin C'], correct: ['Kurang konsumsi serat', 'Menahan buang air besar'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Pernyataan yang tepat mengenai usus halus terdiri dari 3 bagian, yaitu... (Pilih 3)', options: ['Duodenum (Usus 12 jari)', 'Jejunum (Usus kosong)', 'Ileum (Usus penyerapan)', 'Kolon asenden', 'Sekum'], correct: ['Duodenum (Usus 12 jari)', 'Jejunum (Usus kosong)', 'Ileum (Usus penyerapan)'] },
+            { type: 'multiple', label: 'Pilihan Ganda Kompleks', q: 'Apa saja fungsi dari air liur (saliva)? (Pilih 3)', options: ['Membasahi makanan', 'Mengandung enzim amilase', 'Membunuh sebagian kuman (lisozim)', 'Mencerna protein', 'Mengandung asam lambung'], correct: ['Membasahi makanan', 'Mengandung enzim amilase', 'Membunuh sebagian kuman (lisozim)'] },
+
+            // Benar / Salah (21-30)
+            { type: 'boolean', label: 'Benar / Salah', q: 'Gerak peristaltik HANYA terjadi di dalam kerongkongan saja dan tidak di organ lain.', options: ['Benar', 'Salah'], correct: 'Salah' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Lipase adalah enzim yang berfungsi mengubah lemak menjadi asam lemak dan gliserol.', options: ['Benar', 'Salah'], correct: 'Benar' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Pencernaan kimiawi sama sekali tidak terjadi di dalam rongga mulut.', options: ['Benar', 'Salah'], correct: 'Salah' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Pankreas tidak termasuk bagian dari saluran pencernaan, melainkan kelenjar pencernaan.', options: ['Benar', 'Salah'], correct: 'Benar' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Mineral dan air mengalami pencernaan secara kimiawi sebelum diserap oleh usus.', options: ['Benar', 'Salah'], correct: 'Salah' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Radang usus buntu (Apendisitis) terjadi karena adanya infeksi pada umbai cacing (appendix).', options: ['Benar', 'Salah'], correct: 'Benar' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Vitamin C dan B sangat mudah disimpan dalam jaringan lemak tubuh.', options: ['Benar', 'Salah'], correct: 'Salah' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Protein harus dipecah menjadi bentuk paling sederhana yaitu asam amino agar dapat diserap darah.', options: ['Benar', 'Salah'], correct: 'Benar' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Hati (Hepar) menghasilkan enzim pencernaan yang langsung dikirim ke lambung.', options: ['Benar', 'Salah'], correct: 'Salah' },
+            { type: 'boolean', label: 'Benar / Salah', q: 'Fungsi utama usus besar adalah menyerap kembali sisa air dari feses.', options: ['Benar', 'Salah'], correct: 'Benar' }
+        ];
+
+        // --- App State ---
+        let studentData = { name: '', class: '' };
+        let currentIdx = 0;
+        let answers = {};
+        let cheatCount = 0;
+        let isQuizActive = false;
+
+        // --- DOM Elements ---
+        const loginForm = document.getElementById('login-form');
+        const stepLogin = document.getElementById('step-login');
+        const stepQuiz = document.getElementById('step-quiz');
+        const stepResult = document.getElementById('step-result');
+        const warningModal = document.getElementById('warning-modal');
+        const studentInfoDisplay = document.getElementById('student-info-display');
+        const optionsContainer = document.getElementById('options-container');
+        const questionText = document.getElementById('question-text');
+        const qNumDisplay = document.getElementById('current-q-num');
+        const progressBar = document.getElementById('progress-bar');
+        const badgeType = document.getElementById('question-type-badge');
+        const badgeUnanswered = document.getElementById('unanswered-badge');
+        const btnNext = document.getElementById('btn-next');
+        const btnPrev = document.getElementById('btn-prev');
+        const btnSubmit = document.getElementById('btn-submit');
+        
+        const submitModal = document.getElementById('submit-modal');
+        const submitModalText = document.getElementById('submit-modal-text');
+        const btnCancelSubmit = document.getElementById('btn-cancel-submit');
+        const btnConfirmSubmit = document.getElementById('btn-confirm-submit');
+
+        // --- Initialize ---
+        document.getElementById('total-q-num').textContent = questions.length;
+
+        // --- Event Listeners ---
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nameInput = document.getElementById('input-name').value.trim();
+            const classInput = document.getElementById('input-class').value;
+            
+            if (nameInput && classInput) {
+                studentData.name = nameInput;
+                studentData.class = classInput;
+                document.getElementById('display-name').textContent = studentData.name;
+                document.getElementById('display-class').textContent = studentData.class;
+                
+                startQuiz();
+            }
+        });
+
+        btnNext.addEventListener('click', () => {
+            saveAnswer();
+            if (currentIdx < questions.length - 1) {
+                currentIdx++;
+                renderQuestion();
+            }
+        });
+
+        btnPrev.addEventListener('click', () => {
+            saveAnswer();
+            if (currentIdx > 0) {
+                currentIdx--;
+                renderQuestion();
+            }
+        });
+
+        btnSubmit.addEventListener('click', () => {
+            saveAnswer();
+            const unans = getUnansweredCount();
+            if(unans > 0) {
+                submitModalText.textContent = `Anda memiliki ${unans} soal yang belum dijawab. Yakin ingin mengumpulkan?`;
+            } else {
+                submitModalText.textContent = "Apakah Anda yakin telah selesai dan ingin mengirim jawaban?";
+            }
+            submitModal.classList.remove('hidden-step');
+        });
+
+        btnCancelSubmit.addEventListener('click', () => {
+            submitModal.classList.add('hidden-step');
+        });
+
+        btnConfirmSubmit.addEventListener('click', () => {
+            submitModal.classList.add('hidden-step');
+            submitQuiz();
+        });
+
+        document.getElementById('btn-close-warning').addEventListener('click', () => {
+            warningModal.classList.add('hidden-step');
+            enforceFullscreen();
+        });
+
+        // --- Anti-Cheat Logic ---
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isQuizActive) {
+                triggerCheatWarning();
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            if (isQuizActive) {
+                triggerCheatWarning();
+            }
+        });
+
+        function triggerCheatWarning() {
+            cheatCount++;
+            warningModal.classList.remove('hidden-step');
+        }
+
+        function enforceFullscreen() {
+            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            }
+        }
+
+        function exitFullscreen() {
+            try {
+                if (document.fullscreenElement && document.exitFullscreen) {
+                    document.exitFullscreen().catch(err => console.log("Gagal keluar fullscreen otomatis", err));
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        // --- Quiz Functions ---
+        function startQuiz() {
+            enforceFullscreen();
+            stepLogin.classList.add('hidden-step');
+            stepQuiz.classList.remove('hidden-step');
+            studentInfoDisplay.classList.remove('hidden');
+            isQuizActive = true;
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = questions[currentIdx];
+            qNumDisplay.textContent = currentIdx + 1;
+            questionText.textContent = q.q;
+            badgeType.textContent = q.label;
+            
+            // Progress Bar
+            const progressPct = ((currentIdx) / questions.length) * 100;
+            progressBar.style.width = `${progressPct}%`;
+
+            // Navigation State
+            btnPrev.disabled = currentIdx === 0;
+            if (currentIdx === questions.length - 1) {
+                btnNext.classList.add('hidden-step');
+                btnSubmit.classList.remove('hidden-step');
+            } else {
+                btnNext.classList.remove('hidden-step');
+                btnSubmit.classList.add('hidden-step');
+            }
+
+            // Unanswered Badge
+            if (answers[currentIdx] === undefined || (Array.isArray(answers[currentIdx]) && answers[currentIdx].length === 0)) {
+                badgeUnanswered.classList.remove('hidden-step');
+            } else {
+                badgeUnanswered.classList.add('hidden-step');
+            }
+
+            // Render Options
+            optionsContainer.innerHTML = '';
+            const inputType = q.type === 'multiple' ? 'checkbox' : 'radio';
+            
+            q.options.forEach((opt, index) => {
+                const isChecked = checkIsSelected(currentIdx, opt);
+                
+                const label = document.createElement('label');
+                label.className = 'option-label block relative';
+                
+                const inputHtml = `
+                    <input type="${inputType}" name="q_opt" value="${opt}" class="absolute opacity-0 w-0 h-0" ${isChecked ? 'checked' : ''}>
+                    <div class="custom-control">
+                        <div class="w-5 h-5 border border-gray-400 ${inputType === 'radio' ? 'rounded-full' : 'rounded'} mr-3 flex-shrink-0 flex items-center justify-center bg-white ${isChecked ? 'border-blue-500' : ''}">
+                           ${isChecked ? `<div class="w-3 h-3 bg-blue-500 ${inputType === 'radio' ? 'rounded-full' : 'rounded-sm'}"></div>` : ''}
+                        </div>
+                        <span class="text-gray-700">${opt}</span>
+                    </div>
+                `;
+                
+                label.innerHTML = inputHtml;
+                
+                // Add event listener to update custom UI on click immediately
+                label.querySelector('input').addEventListener('change', () => {
+                    saveAnswer(); // Save immediately to state
+                    renderQuestion(); // Re-render to update UI states (badges, custom radio dots)
+                });
+
+                optionsContainer.appendChild(label);
+            });
+        }
+
+        function checkIsSelected(qIndex, optionValue) {
+            const saved = answers[qIndex];
+            if (!saved) return false;
+            if (Array.isArray(saved)) return saved.includes(optionValue);
+            return saved === optionValue;
+        }
+
+        function saveAnswer() {
+            const qType = questions[currentIdx].type;
+            const inputs = document.querySelectorAll('input[name="q_opt"]:checked');
+            
+            if (inputs.length === 0) {
+                if(qType === 'multiple') answers[currentIdx] = [];
+                else delete answers[currentIdx];
+                return;
+            }
+
+            if (qType === 'multiple') {
+                answers[currentIdx] = Array.from(inputs).map(i => i.value);
+            } else {
+                answers[currentIdx] = inputs[0].value;
+            }
+        }
+
+        function getUnansweredCount() {
+            let count = 0;
+            for(let i = 0; i < questions.length; i++) {
+                if(answers[i] === undefined || (Array.isArray(answers[i]) && answers[i].length === 0)) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        function calculateScore() {
+            let correctCount = 0;
+            questions.forEach((q, i) => {
+                const ans = answers[i];
+                if (!ans) return;
+
+                if (q.type === 'multiple') {
+                    // Array comparison (must match exactly)
+                    const isMatch = Array.isArray(ans) && 
+                                  ans.length === q.correct.length &&
+                                  ans.every(v => q.correct.includes(v));
+                    if(isMatch) correctCount++;
+                } else {
+                    if (ans === q.correct) correctCount++;
+                }
+            });
+            // Scale to 100
+            return Math.round((correctCount / questions.length) * 100);
+        }
+
+        async function submitQuiz() {
+            isQuizActive = false;
+            exitFullscreen();
+            
+            stepQuiz.classList.add('hidden-step');
+            stepResult.classList.remove('hidden-step');
+            document.getElementById('loading-submit').classList.remove('hidden-step');
+            document.getElementById('score-display').classList.add('hidden-step');
+
+            const finalScore = calculateScore();
+
+            // Prepare Data for Google Sheets
+            const formData = new URLSearchParams();
+            formData.append('nama', studentData.name);
+            formData.append('kelas', studentData.class);
+            formData.append('skor', finalScore);
+            formData.append('pelanggaran', cheatCount);
+
+            try {
+                // Send via no-cors to bypass complex CORS preflight for simple HTML apps
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                    mode: 'no-cors' 
+                });
+                
+                // Tambahkan sedikit jeda agar proses terlihat natural
+                setTimeout(() => {
+                    showFinalResult(finalScore);
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error submitting:', error);
+                document.getElementById('submit-error-msg').classList.remove('hidden-step');
+                showFinalResult(finalScore);
+            }
+        }
+
+        function showFinalResult(score) {
+            document.getElementById('loading-submit').classList.add('hidden-step');
+            document.getElementById('score-display').classList.remove('hidden-step');
+            
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('final-cheat-count').textContent = cheatCount;
+            
+            if(cheatCount > 0) {
+                document.getElementById('cheat-result-container').classList.remove('hidden-step');
+            } else {
+                document.getElementById('cheat-result-container').classList.add('hidden-step');
+            }
+        }
+    </script>
+</body>
+</html>
