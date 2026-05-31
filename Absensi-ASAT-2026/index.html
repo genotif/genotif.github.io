@@ -129,9 +129,12 @@
   .progress-bar { height: 100%; background: var(--hadir); border-radius: 10px; transition: width 0.4s; }
   .progress-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-align: right; }
 
+  /* FOOTER */
+  .footer { text-align: center; padding: 24px 16px 20px; font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
   /* PRINT */
   @media print {
-    .header, .nav-tabs, .session-bar, .action-bar, .search-wrap, .summary-panel { display: none !important; }
+    .header, .nav-tabs, .session-bar, .action-bar, .search-wrap, .summary-panel, .footer { display: none !important; }
     .main { padding: 0; max-width: 100%; }
     .student-row { break-inside: avoid; }
     .status-buttons { display: none; }
@@ -225,6 +228,11 @@
             <button onclick="toggleLoginMode()" id="btnToggleMode" class="text-sm font-semibold text-[#2980b9] hover:text-[#1a5276] transition-colors">
                 🔒 Masuk sebagai Admin
             </button>
+        </div>
+
+        <!-- Footer Login -->
+        <div class="mt-8 pt-4 border-t border-gray-100 text-xs text-gray-400 font-medium">
+            dikembangkan oleh Rubs | SMAN 1 Cipatat "GOOD" | 2026
         </div>
     </div>
   </div>
@@ -320,6 +328,11 @@
         <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
         <div class="progress-label" id="progressLabel">0% hadir</div>
       </div>
+    </div>
+
+    <!-- Footer Main App -->
+    <div class="footer">
+      dikembangkan oleh Rubs | SMAN 1 Cipatat "GOOD" | 2026
     </div>
 </div>
 
