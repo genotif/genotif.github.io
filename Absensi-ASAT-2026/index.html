@@ -29,7 +29,6 @@
     --shadow: 0 2px 12px rgba(0,0,0,0.08);
   }
   
-  /* Reset scoped for the main app to avoid Tailwind conflicting too much */
   .app-container * { box-sizing: border-box; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; margin: 0; padding: 0;}
 
@@ -180,6 +179,7 @@
 
 <div id="loader" class="loader-bar"></div>
 
+<!-- HALAMAN LOGIN -->
 <div id="loginPage" class="fixed inset-0 z-50 flex items-center justify-center bg-[#0d2d42] px-4">
   <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center relative overflow-hidden">
     <!-- Decorative background blobs -->
@@ -236,6 +236,7 @@
   </div>
 </div>
 
+<!-- APLIKASI UTAMA -->
 <div id="mainApp" class="app-container" style="display:none;">
     <div class="header">
       <div class="header-top">
@@ -248,7 +249,7 @@
           </svg>
         </div>
         <div class="school-name">
-          <h1>SMAN 1 Cipatat <span class="sync-badge hidden sm:inline-flex" id="syncBadge"><span class="sync-dot"></span> <span id="syncText">Realtime</span></span></h1>
+          <h1>SMAN 1 Cipatat <span class="sync-badge hidden sm:inline-flex" id="syncBadge"><span class="sync-dot"></span> <span id="syncText">Menghubungkan...</span></span></h1>
           <p>Kab. Bandung Barat &nbsp;|&nbsp; Jl. Ds. Ciptaharja No.35</p>
         </div>
         
@@ -265,7 +266,7 @@
             <span class="text-gray-300">Pengawas:</span>
             <span id="pengawasLabelMobile" class="font-bold text-white truncate max-w-[150px]"></span>
          </div>
-         <span class="sync-badge inline-flex" id="syncBadgeMobile"><span class="sync-dot"></span> <span id="syncTextMobile">Realtime</span></span>
+         <span class="sync-badge inline-flex" id="syncBadgeMobile"><span class="sync-dot"></span> <span id="syncTextMobile">Menghubungkan...</span></span>
       </div>
 
       <div class="header-title">
@@ -334,72 +335,55 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- MENGUBAH SCRIPT MENJADI MODULE UNTUK FIREBASE REALTIME SYNC -->
+<!-- IMPORT FIREBASE SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-// Setup Firebase Configuration variables
-let app, auth, db, masterDocRef, analytics;
+console.log("Mencoba inisialisasi Firebase...");
+
+// Konfigurasi Firebase Anda
+const firebaseConfig = {
+  apiKey: "AIzaSyCGfz49hvGxkEtKnDxl1TjZyNgKyL1vRXY",
+  authDomain: "absensi-asat-2026.firebaseapp.com",
+  databaseURL: "https://absensi-asat-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "absensi-asat-2026",
+  storageBucket: "absensi-asat-2026.firebasestorage.app",
+  messagingSenderId: "1053162084771",
+  appId: "1:1053162084771:web:3e2056fb5d790a93716216"
+};
+
+let app, auth, db, masterDocRef;
 let currentUser = null;
+let isOnline = false;
 
-// Initialize Firebase Realtime functionality
+// 1. Inisialisasi Firebase
 try {
-    // --- KONFIGURASI FIREBASE ANDA ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyCGfz49hvGxkEtKnDxl1TjZyNgKyL1vRXY",
-      authDomain: "absensi-asat-2026.firebaseapp.com",
-      databaseURL: "https://absensi-asat-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "absensi-asat-2026",
-      storageBucket: "absensi-asat-2026.firebasestorage.app",
-      messagingSenderId: "1053162084771",
-      appId: "1:1053162084771:web:3e2056fb5d790a93716216",
-      measurementId: "G-1B7FQWVLE2"
-    };
-
-    if (firebaseConfig && Object.keys(firebaseConfig).length > 0) {
-        app = initializeApp(firebaseConfig);
-        analytics = getAnalytics(app);
-        auth = getAuth(app);
-        db = getFirestore(app);
-        
-        // Lokasi penyimpanan data di cloud Anda
-        masterDocRef = doc(db, 'absensi_db', 'asat_2026');
-    } else {
-        console.warn("⚠️ Mode Offline Aktif: Sinkronisasi Cloud dimatikan.");
-    }
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    
+    // Lokasi dokumen di database Firestore:
+    // Collection = "absensi_db", Document = "asat_2026_master"
+    masterDocRef = doc(db, 'absensi_db', 'asat_2026_master');
+    console.log("Firebase berhasil diinisialisasi.");
 } catch(err) {
-    console.error("Firebase init failed:", err);
+    console.error("Gagal inisialisasi Firebase:", err);
 }
 
 // Data Pengawas
 const dataPengawas = [
-  "Hj. Ani Nuraeni, M.M",
-  "Eva Sofia, M.Pd.",
-  "Ai Suryati, S.Pd",
-  "Yustin Patriana Dzakaria, S.E",
-  "Ahmad Bobi Muznibinsyah, S.Pd.",
-  "Andri Ganjar Nugraha, S.Kom",
-  "Yuyun Ratna Asih, S.Pd",
-  "Ahmad Mijani, SHI.",
-  "Irwan Budiawan, S.Pd",
-  "Wiwin Windian, S.Pd.",
-  "Opik Ropikoh, S.Pd.",
-  "Ahmad Wahyudi, S.Pd.",
-  "Excaferina Sri Utami, M.Pd",
-  "Ambarwati, S.Pd",
-  "Masni Supinah, S.Pd",
-  "Hera Febriani S.Pd.",
-  "Citra Ayu Nisa, S.Pd.",
-  "Hanan Muhammad Rauf, S.Pd.",
-  "Nenden Susilawati, S.Pd.",
-  "Rif'at Aini Habibie, S.Pd",
-  "Dzarroh Qolba Musoffa, S.Pd"
+  "Hj. Ani Nuraeni, M.M", "Eva Sofia, M.Pd.", "Ai Suryati, S.Pd", "Yustin Patriana Dzakaria, S.E",
+  "Ahmad Bobi Muznibinsyah, S.Pd.", "Andri Ganjar Nugraha, S.Kom", "Yuyun Ratna Asih, S.Pd",
+  "Ahmad Mijani, SHI.", "Irwan Budiawan, S.Pd", "Wiwin Windian, S.Pd.", "Opik Ropikoh, S.Pd.",
+  "Ahmad Wahyudi, S.Pd.", "Excaferina Sri Utami, M.Pd", "Ambarwati, S.Pd", "Masni Supinah, S.Pd",
+  "Hera Febriani S.Pd.", "Citra Ayu Nisa, S.Pd.", "Hanan Muhammad Rauf, S.Pd.", 
+  "Nenden Susilawati, S.Pd.", "Rif'at Aini Habibie, S.Pd", "Dzarroh Qolba Musoffa, S.Pd"
 ];
 
 let loggedInPengawas = "";
+let loginMode = 'pengawas';
 
 // Mengisi dropdown pengawas
 window.addEventListener('DOMContentLoaded', () => {
@@ -412,26 +396,20 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Mode Login (pengawas atau admin)
-let loginMode = 'pengawas';
-
-function toggleLoginMode() {
+// Toggle mode admin/pengawas
+window.toggleLoginMode = function() {
     const pengawasArea = document.getElementById('pengawasArea');
     const adminArea = document.getElementById('adminArea');
     const btnToggleMode = document.getElementById('btnToggleMode');
-    const errPengawas = document.getElementById('loginError');
-    const errAdmin = document.getElementById('adminError');
     
-    // Sembunyikan pesan error saat ganti mode
-    errPengawas.classList.add('hidden');
-    errAdmin.classList.add('hidden');
+    document.getElementById('loginError').classList.add('hidden');
+    document.getElementById('adminError').classList.add('hidden');
 
     if (loginMode === 'pengawas') {
         loginMode = 'admin';
         pengawasArea.classList.add('hidden');
         adminArea.classList.remove('hidden');
         btnToggleMode.innerHTML = '👤 Kembali sebagai Pengawas';
-        // Auto focus password
         setTimeout(() => document.getElementById('adminPassword').focus(), 100);
     } else {
         loginMode = 'pengawas';
@@ -442,490 +420,113 @@ function toggleLoginMode() {
     }
 }
 
-// AUTHENTICATION FUNCTION (RUN BEFORE FIRESTORE QUERIES)
-async function initAuth() {
-    if (!auth) {
-        // Fallback untuk Offline/Lokal
-        document.getElementById('syncBadge').classList.add('offline');
-        document.getElementById('syncText').textContent = 'Offline Mode';
-        document.getElementById('syncBadgeMobile').classList.add('offline');
-        document.getElementById('syncTextMobile').textContent = 'Offline Mode';
-        return; 
-    }
+// Set tampilan status koneksi
+function setSyncStatus(status, isError = false) {
+    const b1 = document.getElementById('syncBadge');
+    const b2 = document.getElementById('syncBadgeMobile');
+    const t1 = document.getElementById('syncText');
+    const t2 = document.getElementById('syncTextMobile');
     
-    document.getElementById('loader').classList.add('active');
-    try {
-        await signInAnonymously(auth);
-    } catch(e) {
-        console.error("Auth error", e);
-        document.getElementById('loader').classList.remove('active');
+    t1.textContent = status;
+    t2.textContent = status;
+    
+    if(isError) {
+        b1.classList.add('offline');
+        b2.classList.add('offline');
+    } else {
+        b1.classList.remove('offline');
+        b2.classList.remove('offline');
     }
 }
 
-// Listener Autentikasi yang Aman
+// 2. Auth State Listener (Pantau apakah user login anonim berhasil)
 if (auth) {
-    onAuthStateChanged(auth, (u) => {
-        currentUser = u;
-        document.getElementById('loader').classList.remove('active');
-        
-        if (currentUser && masterDocRef) {
-            unsubscribeSync = onSnapshot(masterDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    attendance = docSnap.data(); // Sync state with cloud
-                } else {
-                    attendance = {}; 
-                }
-                updateStats();
-                if (document.getElementById('mainApp').style.display !== 'none') {
-                     renderStudents();
-                }
-            }, (err) => {
-                console.error("Firebase Sync error:", err);
-            });
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            console.log("Berhasil login anonim Firebase dengan UID:", user.uid);
+            currentUser = user;
+            isOnline = true;
+            setSyncStatus("Realtime Tersambung");
+            
+            // 3. Mulai sinkronisasi data (Listen for realtime updates)
+            if(masterDocRef) {
+                console.log("Mulai membaca data Firestore secara real-time...");
+                onSnapshot(masterDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        attendance = docSnap.data(); 
+                        console.log("Data diterima dari cloud:", Object.keys(attendance).length, "data absen.");
+                    } else {
+                        console.log("Dokumen cloud kosong, memulai dari awal.");
+                        attendance = {}; 
+                    }
+                    
+                    // Segarkan layar setelah data diperbarui dari cloud
+                    updateStats();
+                    if (document.getElementById('mainApp').style.display !== 'none') {
+                         renderStudents();
+                    }
+                }, (error) => {
+                    console.error("Gagal membaca Firestore:", error.message);
+                    setSyncStatus("Error: Aturan Firestore?", true);
+                    showToast("⚠️ Firebase: Akses ditolak. Cek tab Aturan (Rules) di console Firestore.");
+                });
+            }
+        } else {
+            console.log("User tidak terautentikasi.");
         }
     });
 } else {
-    document.getElementById('syncBadge').classList.add('offline');
-    document.getElementById('syncText').textContent = 'Offline Mode';
-    document.getElementById('syncBadgeMobile').classList.add('offline');
-    document.getElementById('syncTextMobile').textContent = 'Offline Mode';
+    setSyncStatus("Offline Lokal", true);
 }
 
-// Login Local App State Function
-function doLogin() {
+// Login ke Aplikasi (Tombol diklik)
+window.doLogin = async function() {
     const errPengawas = document.getElementById('loginError');
     const errAdmin = document.getElementById('adminError');
     
-    // Reset errors
     errPengawas.classList.add('hidden');
     errAdmin.classList.add('hidden');
 
     if (loginMode === 'pengawas') {
         const select = document.getElementById('pengawasSelect');
-        if (!select.value) {
-            errPengawas.classList.remove('hidden');
-            return;
-        }
+        if (!select.value) { errPengawas.classList.remove('hidden'); return; }
         loggedInPengawas = select.value;
     } else {
         const pass = document.getElementById('adminPassword').value;
-        if (pass !== '13241324') {
-            errAdmin.classList.remove('hidden');
-            return;
-        }
+        if (pass !== '13241324') { errAdmin.classList.remove('hidden'); return; }
         loggedInPengawas = 'Administrator';
     }
     
     document.getElementById('pengawasLabel').textContent = loggedInPengawas;
     document.getElementById('pengawasLabelMobile').textContent = loggedInPengawas;
     
-    // Hide login, show app
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
     
-    // Start Realtime Auth Flow
-    initAuth();
-    
-    // Inisialisasi app setelah login
     initApp();
     
-    if (loginMode === 'admin') {
-        showToast(`Selamat datang, Admin`);
-    } else {
-        showToast(`Selamat bertugas, ${loggedInPengawas.split(',')[0]}`);
+    // Coba login anonim ke Firebase
+    if(auth && !currentUser) {
+        document.getElementById('loader').classList.add('active');
+        try {
+            console.log("Mencoba SignIn Anonymously...");
+            await signInAnonymously(auth);
+            document.getElementById('loader').classList.remove('active');
+        } catch(e) {
+            console.error("Gagal SignIn Anonymously:", e.message);
+            document.getElementById('loader').classList.remove('active');
+            setSyncStatus("Error Login Anonim", true);
+            showToast("Gagal menyambung ke server. Apakah Auth Anonymous sudah diaktifkan?");
+        }
     }
+    
+    if (loginMode === 'admin') showToast(`Selamat datang, Admin`);
+    else showToast(`Selamat bertugas, ${loggedInPengawas.split(',')[0]}`);
 }
 
 // --- DATA STRUCTURES (ROOMS AND SCHEDULE) ---
+// (DIPERSINGKAT DI CONTOH INI, ANDA HARUS PASTE DATA SISWA ASLI DISINI JIKA TIDAK MUNCUL)
 const ROOMS = {"1":{"siswa":[{"nis":"252610001","nama":"ABDUL HAKIM ADILA","kelas":"X A"},{"nis":"252610002","nama":"ABDURRAHMAN ASSIDIQ","kelas":"X A"},{"nis":"252610003","nama":"ADLY SAEPUL ANWAR","kelas":"X A"},{"nis":"252610004","nama":"APRILIA SANTOSA PUTRI","kelas":"X A"},{"nis":"252610005","nama":"BELVA PUTRI NUR CAHYANI","kelas":"X A"},{"nis":"252610007","nama":"BILBINA FATHIYA RAYNA","kelas":"X A"},{"nis":"252610008","nama":"CINTA ZACKIA NUR AZIZAH","kelas":"X A"},{"nis":"252610009","nama":"DELON SIMANJORANG","kelas":"X A"},{"nis":"252610010","nama":"DENIS SETIA PERMANA","kelas":"X A"},{"nis":"252610011","nama":"DERRY ARMANDA SAPUTRA","kelas":"X A"},{"nis":"252610012","nama":"DESTI DEWI RAHAYU","kelas":"X A"},{"nis":"252610013","nama":"DEVI WULANDARI","kelas":"X A"},{"nis":"252610014","nama":"FARHAN FADILLAH","kelas":"X A"},{"nis":"252610015","nama":"FITRI AMALIA","kelas":"X A"},{"nis":"252610016","nama":"M. ALBI AGUSTIN","kelas":"X A"},{"nis":"252610017","nama":"M. DZAKY ANUGRAH SYABAN","kelas":"X A"},{"nis":"252610018","nama":"MARSHA TYANA NAHLA SOPIAN","kelas":"X A"},{"nis":"252610019","nama":"MARVA LUTVIA","kelas":"X A"},{"nis":"252610020","nama":"MUHAMAD ALVIN","kelas":"X A"},{"nis":"252610021","nama":"MUHAMAD REVAN RIVALDY","kelas":"X A"},{"nis":"252610022","nama":"MUHAMMAD DZAKWAN KHOIR SYAHREZA M","kelas":"X A"},{"nis":"242510061","nama":"AFMI AISYA PUTRI","kelas":"XI A"},{"nis":"242510098","nama":"AGNI MAULIDA","kelas":"XI A"},{"nis":"242510063","nama":"AI WINDA","kelas":"XI A"},{"nis":"242510134","nama":"ALISYA AFRIANI","kelas":"XI A"},{"nis":"242510064","nama":"ANDIKA RAHAYU","kelas":"XI A"},{"nis":"242510103","nama":"CHARIZSMA AYU WIDHYA SUPARDI","kelas":"XI A"},{"nis":"242510139","nama":"DANDI ADI NUGRAHA","kelas":"XI A"},{"nis":"242510140","nama":"DHEA APRILIA","kelas":"XI A"},{"nis":"242510107","nama":"ENO SEPTI AZAHRA","kelas":"XI A"},{"nis":"242510070","nama":"FADHLAN AMIRUSHODIQIN","kelas":"XI A"},{"nis":"242510036","nama":"FADIEL RADITIA","kelas":"XI A"},{"nis":"242510072","nama":"HAURA RAUDHATUL JANAH PUTRI NUGRAHA","kelas":"XI A"},{"nis":"242510075","nama":"IKHSAN NOVRIANSYAH","kelas":"XI A"},{"nis":"242510040","nama":"KIKIH PATIMAH","kelas":"XI A"},{"nis":"242510078","nama":"LYRA NURRIZKI","kelas":"XI A"},{"nis":"242510111","nama":"MOCH RAZALI","kelas":"XI A"},{"nis":"242510080","nama":"MUHAMAD ILHAM","kelas":"XI A"},{"nis":"242510082","nama":"MUHAMAD RIFA ARRAUDHAH HIDAYAT","kelas":"XI A"},{"nis":"242510113","nama":"MUHAMMAD AGUNG SETIAWAN","kelas":"XI A"},{"nis":"242510016","nama":"MUHAMMAD HAMDAN JAELANI","kelas":"XI A"}]},"2":{"siswa":[{"nis":"252610023","nama":"MUHAMMAD NAZAR","kelas":"X A"},{"nis":"252610024","nama":"MUHAMMAD SYAHRIEL ROMADON","kelas":"X A"},{"nis":"252610025","nama":"NABILA ALFIANDITYA LATHIFAH","kelas":"X A"},{"nis":"252610026","nama":"NANDA CITRA FATIMAH","kelas":"X A"},{"nis":"252610027","nama":"NAZHWA KAYLA RAMADHIANI","kelas":"X A"},{"nis":"252610028","nama":"RAISYA AGNIA RUBIL","kelas":"X A"},{"nis":"252610029","nama":"REZZA PRATAMA","kelas":"X A"},{"nis":"252610030","nama":"RIANTI FUJI RAMADHANI","kelas":"X A"},{"nis":"252610031","nama":"SALMA MAULIDA","kelas":"X A"},{"nis":"252610032","nama":"SALSABILAH DINI AZZAHRA","kelas":"X A"},{"nis":"252610033","nama":"SANIA RAHMAWATI","kelas":"X A"},{"nis":"252610034","nama":"SEKAR CIPTA SARI","kelas":"X A"},{"nis":"252610035","nama":"SIGIT SEPTIADI A PRATAMA","kelas":"X A"},{"nis":"252610036","nama":"SILVI FEBRIYANTI","kelas":"X A"},{"nis":"252610037","nama":"SISKA SRI RAHAYU","kelas":"X A"},{"nis":"252610038","nama":"SITI NURAZIJAH","kelas":"X A"},{"nis":"252610039","nama":"SRI FATONAH","kelas":"X A"},{"nis":"252610040","nama":"SYAIRA NUR APIPAH","kelas":"X A"},{"nis":"252610041","nama":"SYIFA AULIA FAUZIAH","kelas":"X A"},{"nis":"252610042","nama":"WULAN SARI","kelas":"X A"},{"nis":"252610043","nama":"YASMIN RIZA NURJANAH","kelas":"X A"},{"nis":"242510083","nama":"NAFIS HIKAM TSANIAL MUTTAQIN","kelas":"XI A"},{"nis":"242510116","nama":"NUR QOLBIYAH SALAMAH","kelas":"XI A"},{"nis":"242510048","nama":"NURMALA","kelas":"XI A"},{"nis":"242510117","nama":"RAISYA RAHMA","kelas":"XI A"},{"nis":"242510118","nama":"RAMDANI","kelas":"XI A"},{"nis":"242510051","nama":"RAPLI AGUSTIAN SOBANDI","kelas":"XI A"},{"nis":"242510018","nama":"RENI NUR FADILAH","kelas":"XI A"},{"nis":"242510084","nama":"RESTU ADITYA","kelas":"XI A"},{"nis":"242510120","nama":"RISMA ANGGRAENI","kelas":"XI A"},{"nis":"242510022","nama":"RISYA MEYSA PUTRI","kelas":"XI A"},{"nis":"242510086","nama":"RIZKY NUR RAMDHAN","kelas":"XI A"},{"nis":"242510087","nama":"ROSY PEBRIANA PUTRI","kelas":"XI A"},{"nis":"242510056","nama":"SALSABILA","kelas":"XI A"},{"nis":"242510090","nama":"SANDI ISMAIL RAMADHAN","kelas":"XI A"},{"nis":"242510092","nama":"SELVI SELPIANA","kelas":"XI A"},{"nis":"242510128","nama":"TAZQIA MAULIDA","kelas":"XI A"},{"nis":"242510094","nama":"TUBAGUS RENDRA RUSDYANSYAH","kelas":"XI A"},{"nis":"242510030","nama":"WIDI ANGGRAENI","kelas":"XI A"},{"nis":"242510060","nama":"WINA NINDA","kelas":"XI A"}]},"3":{"siswa":[{"nis":"252610044","nama":"ABDUL AZIS PERMANA","kelas":"X B"},{"nis":"252610045","nama":"AGUNG SENDI SETIAWAN","kelas":"X B"},{"nis":"252610046","nama":"AGUSTIAN SUTISNA","kelas":"X B"},{"nis":"252610047","nama":"AHMAD FAUZAN DWI HERDIAN","kelas":"X B"},{"nis":"252610048","nama":"ALIEF FAJAR RAMADHAN","kelas":"X B"},{"nis":"252610049","nama":"AMANDA AYU PEBRIYANA","kelas":"X B"},{"nis":"252610050","nama":"ANJAR SUDIRMAN","kelas":"X B"},{"nis":"252610051","nama":"DERRY IKHSAN MAULANA","kelas":"X B"},{"nis":"252610052","nama":"DEVI NURUL ANGGRAENY","kelas":"X B"},{"nis":"252610053","nama":"DHIAN KHALISH ARROBI","kelas":"X B"},{"nis":"252610054","nama":"ELPA JULIANTI","kelas":"X B"},{"nis":"252610055","nama":"FADIL MAULANA","kelas":"X B"},{"nis":"252610056","nama":"FARDAN RIZKIANA RAHMAT","kelas":"X B"},{"nis":"252610057","nama":"FIRMAN RAMADAN","kelas":"X B"},{"nis":"252610058","nama":"JULIYA PUTERI LESTARI","kelas":"X B"},{"nis":"252610059","nama":"MAGHFIRA IZZANI PERMANA","kelas":"X B"},{"nis":"252610060","nama":"MARWAH RAHMAYANTI","kelas":"X B"},{"nis":"252610061","nama":"MAYESA NADIA PUTRI","kelas":"X B"},{"nis":"252610062","nama":"MERISKA NUR RAMADHANI","kelas":"X B"},{"nis":"252610063","nama":"MEYRA DIVA FUTRI MIFTAH","kelas":"X B"},{"nis":"252610064","nama":"MUHAMMAD KHIKAM ABDULFASA","kelas":"X B"},{"nis":"252610065","nama":"NABILA SULIS ANANDA RUPAWAN","kelas":"X B"},{"nis":"242510001","nama":"ADI SAEPUDIN","kelas":"XI B"},{"nis":"242510003","nama":"AFLIA ZAHROTUSHITA","kelas":"XI B"},{"nis":"242510170","nama":"ANANDA PUTRI SALSABILA","kelas":"XI B"},{"nis":"242510005","nama":"AULIA FINALISA SONIA","kelas":"XI B"},{"nis":"242510138","nama":"BILLY MANDALA PUTRA","kelas":"XI B"},{"nis":"242510066","nama":"BIMA PUTRA SETIAWAN","kelas":"XI B"},{"nis":"242510105","nama":"DERIN ADYA PUTRA","kelas":"XI B"},{"nis":"242510141","nama":"DWI HANIPAH RAMADANI","kelas":"XI B"},{"nis":"242510143","nama":"FAUZAN AZIMA RAMADAN","kelas":"XI B"},{"nis":"242510175","nama":"GILANG CAHYA LESMANA","kelas":"XI B"},{"nis":"242510071","nama":"GIVA AKHIRAN","kelas":"XI B"},{"nis":"242510013","nama":"M.NAUVAL KHOIRI DZIYAD","kelas":"XI B"},{"nis":"242510079","nama":"MARSHA NALINDA PUTRI","kelas":"XI B"},{"nis":"242510221","nama":"MAYA MARYANA","kelas":"XI B"},{"nis":"242510185","nama":"MUHAMMAD AGISNA NUGRAHA","kelas":"XI B"},{"nis":"242510326","nama":"NADIRA VIDI","kelas":"XI B"},{"nis":"242510295","nama":"NAUVELIANA NURHALISYAH","kelas":"XI B"},{"nis":"242510047","nama":"NOVI HASHANA","kelas":"XI B"}]},"4":{"siswa":[{"nis":"252610066","nama":"NENDEN SIFA OKTAFIANI","kelas":"X B"},{"nis":"252610067","nama":"NENG LALA KOMALASARI","kelas":"X B"},{"nis":"252610068","nama":"NOERHABIBAIN ALPATONI","kelas":"X B"},{"nis":"252610069","nama":"NOLA ITA ARIYANTI S","kelas":"X B"},{"nis":"252610070","nama":"NUR SHIFA DWINANDA","kelas":"X B"},{"nis":"252610071","nama":"NURANI DWI APRILIA","kelas":"X B"},{"nis":"252610072","nama":"NURUSSAADAH","kelas":"X B"},{"nis":"252610073","nama":"PUTRI SYAKIRA ASNA","kelas":"X B"},{"nis":"252610074","nama":"RAKA ABILA PASHA","kelas":"X B"},{"nis":"252610075","nama":"RIDA ELYANTI","kelas":"X B"},{"nis":"252610076","nama":"RIDHO RAHMAT SURYANA","kelas":"X B"},{"nis":"252610077","nama":"RIFKI RAHMADANI","kelas":"X B"},{"nis":"252610078","nama":"SATRIA WILDAN SAPUTRA","kelas":"X B"},{"nis":"252610079","nama":"SHYRIN LISTIAN RAMADHANI","kelas":"X B"},{"nis":"252610080","nama":"SILVIA JUANI","kelas":"X B"},{"nis":"252610081","nama":"SINDY AULIA RAHMA","kelas":"X B"},{"nis":"252610082","nama":"SITI YULIANTI","kelas":"X B"},{"nis":"252610083","nama":"SULISTIA","kelas":"X B"},{"nis":"252610084","nama":"SUNDARI NOVIANTI","kelas":"X B"},{"nis":"252610085","nama":"TENNI NUR RANNI","kelas":"X B"},{"nis":"252610086","nama":"ZAJ'AH FAZA ALIANTO AL AZIZI","kelas":"X B"},{"nis":"242510328","nama":"NOVITA PRATIWI","kelas":"XI B"},{"nis":"242510229","nama":"PEBI","kelas":"XI B"},{"nis":"242510330","nama":"RAFKA ALFIANSYAH SUBAGJA","kelas":"XI B"},{"nis":"242510192","nama":"RAIHAN IBNU HF AL - AZMI","kelas":"XI B"},{"nis":"242510052","nama":"RAYYIS SURYA RAMADHAN","kelas":"XI B"},{"nis":"242510336","nama":"RICKY RAMDHANI","kelas":"XI B"},{"nis":"242510337","nama":"RISKA NOVIANI","kelas":"XI B"},{"nis":"242510085","nama":"RISNA SUCI MAHARANI ARYUNINGRUM","kelas":"XI B"},{"nis":"242510338","nama":"RISTIAN","kelas":"XI B"},{"nis":"242510339","nama":"SALMA NURUL HIDAYAH","kelas":"XI B"},{"nis":"242510340","nama":"SALSABILLA NUGRAHA","kelas":"XI B"},{"nis":"242510305","nama":"SEANA CHIEARA FARRESYA SUHENDAR","kelas":"XI B"},{"nis":"242510162","nama":"SHANDY MARFIANSYAH","kelas":"XI B"},{"nis":"242510163","nama":"SITI ANISA","kelas":"XI B"},{"nis":"242510164","nama":"SOPIA NURJANAH","kelas":"XI B"},{"nis":"242510201","nama":"TEGAR AKBAR AMALI","kelas":"XI B"},{"nis":"242510345","nama":"YOWAN YOLANDA KURNIANTO","kelas":"XI B"},{"nis":"242510131","nama":"YUSRIAH FAIHA GUSTIAN","kelas":"XI B"},{"nis":"242510202","nama":"ZIQO MUHAMMAD LUTHFI ALHAFIDZS","kelas":"XI B"}]},"5":{"siswa":[{"nis":"252610087","nama":"AIRA VIRZHANI RAMADHAN","kelas":"X C"},{"nis":"252610088","nama":"AJENG SAKIRA K","kelas":"X C"},{"nis":"252610089","nama":"ALDI MULYANA","kelas":"X C"},{"nis":"252610090","nama":"BILI RIZKI SEPTIAWAN","kelas":"X C"},{"nis":"252610091","nama":"DESI HUSNUL HOTIMAH","kelas":"X C"},{"nis":"252610092","nama":"DIKA ERMAWAN","kelas":"X C"},{"nis":"252610093","nama":"ELINA ADINDA ANDRIANI","kelas":"X C"},{"nis":"252610094","nama":"ELSAVIA JAYADI","kelas":"X C"},{"nis":"252610095","nama":"ELVERA BABELINA ZULFANI","kelas":"X C"},{"nis":"252610096","nama":"FAIZ ABIDAL","kelas":"X C"},{"nis":"252610097","nama":"GUNTUR GALIH GINANJAR","kelas":"X C"},{"nis":"252610098","nama":"HAURA KHANZA NADHIFA AKILA","kelas":"X C"},{"nis":"252610099","nama":"KEYLA ASYA HIDAYAT","kelas":"X C"},{"nis":"252610100","nama":"KHANDIRA GUSTHAF NURALAM","kelas":"X C"},{"nis":"252610101","nama":"KHANZHA CHADIRA PITALOKA","kelas":"X C"},{"nis":"252610102","nama":"MELY","kelas":"X C"},{"nis":"252610103","nama":"MOCHAMAD AGUNG ALFARIZKY","kelas":"X C"},{"nis":"252610104","nama":"MUHAMAD AZKA ALMUTAZ","kelas":"X C"},{"nis":"252610105","nama":"MUHAMAD CAESAR ALVARIZI","kelas":"X C"},{"nis":"252610106","nama":"MUHAMAD DANI","kelas":"X C"},{"nis":"252610107","nama":"MUHAMAD REZA SEPTIAWAN","kelas":"X C"},{"nis":"242510097","nama":"ABDUL ROSYID RADITYA RAHMAN","kelas":"XI C"},{"nis":"242510004","nama":"AGUNG SETIA PAMBUDI","kelas":"XI C"},{"nis":"242510311","nama":"AHMAD RHOMDANI ASSOFI","kelas":"XI C"},{"nis":"242510167","nama":"ALFIAN ABIMANYU","kelas":"XI C"},{"nis":"242510242","nama":"ARGA TRIYASPURA DIWANGSA","kelas":"XI C"},{"nis":"242510314","nama":"ASYIFA PUTRI","kelas":"XI C"},{"nis":"242510172","nama":"AZZAHRA PUTRI","kelas":"XI C"},{"nis":"242510006","nama":"BILAL FAQIH ILMI","kelas":"XI C"},{"nis":"242510069","nama":"DESI AMELIA","kelas":"XI C"},{"nis":"242510317","nama":"FARIS PUTRA IRAWAN","kelas":"XI C"},{"nis":"242510248","nama":"GINAYA DWI MAHARANI","kelas":"XI C"},{"nis":"242510288","nama":"HELMY ADITYA PRIATNA","kelas":"XI C"},{"nis":"242510215","nama":"HERRI","kelas":"XI C"},{"nis":"242510148","nama":"HILMAN RAMDAN","kelas":"XI C"},{"nis":"242510320","nama":"ISMI AULIA","kelas":"XI C"},{"nis":"242510321","nama":"KENZY UMARAN","kelas":"XI C"},{"nis":"242510180","nama":"KHAILA ANNISSA AGUSTIANI","kelas":"XI C"},{"nis":"242510181","nama":"M. ALI ALBANI","kelas":"XI C"},{"nis":"242510292","nama":"MELINDA SARY","kelas":"XI C"},{"nis":"242510182","nama":"MIA PAUJIAH","kelas":"XI C"}]},"6":{"siswa":[{"nis":"252610108","nama":"MUHAMMAD ABIEL SOBIRIN","kelas":"X C"},{"nis":"252610109","nama":"MUHAMMAD FADHIL ARRASYID","kelas":"X C"},{"nis":"252610110","nama":"MUHAMMAD HASBI ASH SIDDIQ HASAN","kelas":"X C"},{"nis":"252610111","nama":"MUHAMMAD IHSAN KAMIL","kelas":"X C"},{"nis":"252610112","nama":"MUTIA AULIA SYAMSHIKA","kelas":"X C"},{"nis":"252610113","nama":"NADYA MAILANI","kelas":"X C"},{"nis":"252610114","nama":"NANDIRA ERVINA RAHAYU","kelas":"X C"},{"nis":"252610115","nama":"NELA ROSDIANA","kelas":"X C"},{"nis":"252610116","nama":"NOVITHA SILVIS MAHARANI","kelas":"X C"},{"nis":"252610117","nama":"NURHABIBAH SOFIROH","kelas":"X C"},{"nis":"252610118","nama":"RAFA SAJIWA","kelas":"X C"},{"nis":"252610119","nama":"RAMDAN HERMAWAN","kelas":"X C"},{"nis":"252610120","nama":"RAYANI DESYANTI","kelas":"X C"},{"nis":"252610121","nama":"RESTI TUTI WALLANI","kelas":"X C"},{"nis":"252610122","nama":"SAEFUL FAJAR","kelas":"X C"},{"nis":"252610123","nama":"SARAH RAFIKA","kelas":"X C"},{"nis":"252610124","nama":"SHEBY BUNGA JASSICA","kelas":"X C"},{"nis":"252610125","nama":"SIPA SASKIYA","kelas":"X C"},{"nis":"252610127","nama":"SYAFA HAFSHAH HAZIRA","kelas":"X C"},{"nis":"252610128","nama":"YUANA","kelas":"X C"},{"nis":"252610129","nama":"ZIA NAKESYHA AMALIA","kelas":"X C"},{"nis":"242510183","nama":"MUHAMAD RAPA AQILAH","kelas":"XI C"},{"nis":"242510184","nama":"MUHAMAD SHOLIH HAFIZH","kelas":"XI C"},{"nis":"242510324","nama":"MUHAMAD YUNUS","kelas":"XI C"},{"nis":"242510327","nama":"NAZIVA LETISHA PUTRI","kelas":"XI C"},{"nis":"242510297","nama":"NISFHI AULIYA NUR SHIFA","kelas":"XI C"},{"nis":"242510299","nama":"PRAMADEWI TRIPUTRI","kelas":"XI C"},{"nis":"242510191","nama":"RAFIKA CINTA MAHARANI","kelas":"XI C"},{"nis":"242510331","nama":"RAFY DZULFAHMI","kelas":"XI C"},{"nis":"252611439","nama":"RAGA KUSUMA","kelas":"XI C"},{"nis":"242510301","nama":"RAIFAN ALI SETIADI","kelas":"XI C"},{"nis":"242510332","nama":"RAISA SALSA BILA","kelas":"XI C"},{"nis":"242510050","nama":"RAMA MUHAMMAD YOPA","kelas":"XI C"},{"nis":"242510019","nama":"REVALINA ALVIONITA","kelas":"XI C"},{"nis":"242510054","nama":"RIFKI NUR WALIS","kelas":"XI C"},{"nis":"242510193","nama":"RIZKI RAMADHANI","kelas":"XI C"},{"nis":"242510159","nama":"SAFA INTAN NURAINI","kelas":"XI C"},{"nis":"242510270","nama":"SAMY HELANO","kelas":"XI C"},{"nis":"242510126","nama":"SUCI ANGGRAENI","kelas":"XI C"},{"nis":"242510236","nama":"TITIN ROHAYATI","kelas":"XI C"}]},"7":{"siswa":[{"nis":"252610130","nama":"ALFIANSAH SURYA SAPUTRA","kelas":"X D"},{"nis":"252610131","nama":"ALMIRA NURIZKIKA","kelas":"X D"},{"nis":"252610132","nama":"AMELIA SITI ROBIAH ADAWIYAH","kelas":"X D"},{"nis":"252610133","nama":"BILQIS NETHANIA PUTRI","kelas":"X D"},{"nis":"252610134","nama":"CLARISA KIRANIA AZAHRA","kelas":"X D"},{"nis":"252610135","nama":"DHEA AMELIA SARI","kelas":"X D"},{"nis":"252610136","nama":"DIKA DISNA JUNIAWAN","kelas":"X D"},{"nis":"252610137","nama":"FARHAN DWI CAHYADI","kelas":"X D"},{"nis":"252610138","nama":"FADHIL KHAIBAR ZHAPRAN. M","kelas":"X D"},{"nis":"252610139","nama":"GILAN PRATAMA RAMADHAN","kelas":"X D"},{"nis":"252610140","nama":"GISEL ANASTASYA KUNDLI","kelas":"X D"},{"nis":"252610141","nama":"HALIMATUSHADIAH","kelas":"X D"},{"nis":"252610142","nama":"HAMDA SAKHIA","kelas":"X D"},{"nis":"252610143","nama":"JIHAN NUR MAULIDITA","kelas":"X D"},{"nis":"252610144","nama":"KAILA VANESHA PUTRI","kelas":"X D"},{"nis":"252610145","nama":"KEYSHA ARISTHIATY","kelas":"X D"},{"nis":"252610146","nama":"KINANTI CAMELIA INDRIANI","kelas":"X D"},{"nis":"252610147","nama":"LUTFIA NAFSYA MAWADDA","kelas":"X D"},{"nis":"252610148","nama":"M.RIDHO MAULANA SAPUTRA","kelas":"X D"},{"nis":"252610149","nama":"MALIK AL GHAZALI","kelas":"X D"},{"nis":"252610150","nama":"MARIA NUR AISYAH","kelas":"X D"},{"nis":"252610151","nama":"MEYSHE","kelas":"X D"},{"nis":"242510002","nama":"AFIFAH PUTRI AFRILIAN","kelas":"XI D"},{"nis":"242510032","nama":"AHLUL MAULANA","kelas":"XI D"},{"nis":"242510099","nama":"AHMAD AZIZ NURJAMAN","kelas":"XI D"},{"nis":"242510033","nama":"ALTAF AGUNG JAUHARI","kelas":"XI D"},{"nis":"242510135","nama":"ALYA YUNIAR FADILAH","kelas":"XI D"},{"nis":"242510280","nama":"CALIKA ANJANIA","kelas":"XI D"},{"nis":"242510281","nama":"CERIA CINTA NOVALIEN","kelas":"XI D"},{"nis":"242510007","nama":"CRISTOFER","kelas":"XI D"},{"nis":"242510316","nama":"ELVIRA MEISYA NURFADILLAH","kelas":"XI D"},{"nis":"242510009","nama":"FADHLAN NABIL FAHMI","kelas":"XI D"},{"nis":"242510037","nama":"FAHRI RIFA'I MUTTAQIN","kelas":"XI D"},{"nis":"242510108","nama":"FARIS HAIKAL WIBISANA","kelas":"XI D"},{"nis":"242510214","nama":"HANAN JAMILAH","kelas":"XI D"},{"nis":"242510177","nama":"HASNA HUMAIRA","kelas":"XI D"},{"nis":"242510178","nama":"INTAN APRILIA NURAENI","kelas":"XI D"},{"nis":"242510290","nama":"KAYRA AMALYA RACHMAN","kelas":"XI D"},{"nis":"242510110","nama":"KEVIN MUARATALO SIMBOLON","kelas":"XI D"},{"nis":"242510041","nama":"LUTHFITA NURMA AZ ZAHRA","kelas":"XI D"},{"nis":"242510042","nama":"M. NOVAL MA'RIFFATULLAH","kelas":"XI D"}]},"8":{"siswa":[{"nis":"252610152","nama":"MINATI HARIYANTI","kelas":"X D"},{"nis":"252610153","nama":"MOCHAMAD FARHAN NAZARUDDIN","kelas":"X D"},{"nis":"252610154","nama":"MUHAMAD RIZQI ADITYA","kelas":"X D"},{"nis":"252610155","nama":"MUHAMAD WILDZAN P. PRATAMA","kelas":"X D"},{"nis":"252610156","nama":"MUHAMMAD ABDUL RASYID","kelas":"X D"},{"nis":"252610157","nama":"MUHAMMAD HIBBAN ISHMATULLAH","kelas":"X D"},{"nis":"252610158","nama":"NENG ARINI","kelas":"X D"},{"nis":"252610159","nama":"NURUL SASKIYA","kelas":"X D"},{"nis":"252610160","nama":"PUTRI MASPINDA","kelas":"X D"},{"nis":"252610161","nama":"RAFAEL DIAZ","kelas":"X D"},{"nis":"252610162","nama":"RAMA OCTAVIANDRA SULTONI","kelas":"X D"},{"nis":"252610163","nama":"REKI RAHMAT HIDAYAT","kelas":"X D"},{"nis":"252610164","nama":"RICKY FIRMANSYAH","kelas":"X D"},{"nis":"252610165","nama":"RIFKI ALYASIN","kelas":"X D"},{"nis":"252610166","nama":"RIMA AMIRA","kelas":"X D"},{"nis":"252610167","nama":"SELEN","kelas":"X D"},{"nis":"252610168","nama":"SELIN MEILANI PUTRI","kelas":"X D"},{"nis":"252610169","nama":"SITI WILDAH FIRNALIYAWATI","kelas":"X D"},{"nis":"252610170","nama":"SYAWALIYA EKA PRATIWI","kelas":"X D"},{"nis":"252610171","nama":"TAUFIK MUHAJIB","kelas":"X D"},{"nis":"252610172","nama":"WIDIA MAHESA","kelas":"X D"},{"nis":"252610173","nama":"YUANITA PUTRI RUSYANDI","kelas":"X D"},{"nis":"242510323","nama":"MOCHAMAD IKHSAN","kelas":"XI D"},{"nis":"242510044","nama":"MUHAMAD ILHAM MULLOH","kelas":"XI D"},{"nis":"242510152","nama":"MUHAMMAD AZKA AUFA MU'TI","kelas":"XI D"},{"nis":"242510045","nama":"MUHAMMAD NUR MULYANA","kelas":"XI D"},{"nis":"242510151","nama":"MUHAMMAD PADLI PEDRIAN","kelas":"XI D"},{"nis":"242510325","nama":"MUTHYA AZZAHRA","kelas":"XI D"},{"nis":"242510188","nama":"NADIA PIRIANI LESTARI","kelas":"XI D"},{"nis":"242510262","nama":"NENG CINDI","kelas":"XI D"},{"nis":"242510231","nama":"RAFIF ARYA GELARNARPATI","kelas":"XI D"},{"nis":"242510334","nama":"RAYA SAFRIENADINA WAHYUNI","kelas":"XI D"},{"nis":"242510119","nama":"RIFKY NAZWAR NURROHMAN","kelas":"XI D"},{"nis":"242510023","nama":"RIZQY YUSUF RACHMAN","kelas":"XI D"},{"nis":"242510194","nama":"ROSITA PUTRI","kelas":"XI D"},{"nis":"242510025","nama":"SINTA RAMADANI","kelas":"XI D"},{"nis":"242510272","nama":"SITI NUR AZIZAH","kelas":"XI D"},{"nis":"242510125","nama":"SRI AYU MULYANI","kelas":"XI D"},{"nis":"242510165","nama":"SYAHRUL RAMDHANI","kelas":"XI D"},{"nis":"242510129","nama":"TIARA YULIANA DEWI","kelas":"XI D"}]},"9":{"siswa":[{"nis":"252610174","nama":"ALVINA RAUDATUL MAGFIROH","kelas":"X E"},{"nis":"252610175","nama":"ANANTA SYAUKANI KHAWARIZMI SIREGAR","kelas":"X E"},{"nis":"252610176","nama":"ANATASYA PUTRI DEWI","kelas":"X E"},{"nis":"252610177","nama":"ANCIA ARSYLIA","kelas":"X E"},{"nis":"252610178","nama":"ANDINI PUTRI BUDHIANI","kelas":"X E"},{"nis":"252610179","nama":"ANGGISA FITRI RAMDINA","kelas":"X E"},{"nis":"252610180","nama":"ASEP JAELANI","kelas":"X E"},{"nis":"252610181","nama":"DELIA NADIA PUTRI","kelas":"X E"},{"nis":"252610182","nama":"DIMAS SETIANA TRI PURWANTO","kelas":"X E"},{"nis":"252610183","nama":"DINI AMELIA LESTARI","kelas":"X E"},{"nis":"252610184","nama":"ELPA HAIRUN NISA","kelas":"X E"},{"nis":"252610185","nama":"GABRIELA ANNURILLA SWANDI","kelas":"X E"},{"nis":"252610186","nama":"GENTA BELA FIRMANSYAH","kelas":"X E"},{"nis":"252610187","nama":"GILANG ANGGA YUDHA PUTRA","kelas":"X E"},{"nis":"252610188","nama":"HAFIDZH KHOIRUN NIZAM","kelas":"X E"},{"nis":"252610189","nama":"HANIFA NURAUF","kelas":"X E"},{"nis":"252610190","nama":"HANNY ARSYIL SETIA","kelas":"X E"},{"nis":"252610191","nama":"HANSYAH FACHRUL SYABANI","kelas":"X E"},{"nis":"252610192","nama":"HISYAM ALTHAAF PUTRA","kelas":"X E"},{"nis":"252610193","nama":"IJLAL ARMANDA","kelas":"X E"},{"nis":"252610194","nama":"MEISYA ARTIANA CHYKAL","kelas":"X E"},{"nis":"252610195","nama":"MOCHAMAD RAFA","kelas":"X E"},{"nis":"242510132","nama":"ADINDA KUSMAWATI","kelas":"XI E"},{"nis":"242510310","nama":"ADITIYA DWI PUTRA","kelas":"XI E"},{"nis":"242510133","nama":"AGINTA KHAERISA PUTRI KUSNADI","kelas":"XI E"},{"nis":"242510206","nama":"ALVIN FAIZ NUGRAHA","kelas":"XI E"},{"nis":"242510101","nama":"ANDES NATALIANTI","kelas":"XI E"},{"nis":"242510313","nama":"ANGGUN AULIA NURFAZRIYAH","kelas":"XI E"},{"nis":"242510136","nama":"ANITA YULIANTI","kelas":"XI E"},{"nis":"242510034","nama":"AYU NAILLA AMELLIYA","kelas":"XI E"},{"nis":"242510315","nama":"DENDI SETIAWAN","kelas":"XI E"},{"nis":"242510174","nama":"DYAH CHANDRADINI KHAIRUNNISA","kelas":"XI E"},{"nis":"242510283","nama":"DZIQRI SYAHRUL SYABANI","kelas":"XI E"},{"nis":"242510211","nama":"EUIS SITI KARTIKA","kelas":"XI E"},{"nis":"242510286","nama":"FAKHRI ZAHRAN","kelas":"XI E"},{"nis":"242510213","nama":"GAZA MOHAMMAD AL-GHIFARI","kelas":"XI E"},{"nis":"242510146","nama":"HABIL HAFITZHA","kelas":"XI E"},{"nis":"242510073","nama":"HERMAWATI","kelas":"XI E"},{"nis":"242510216","nama":"ISNA SITI NURYASA","kelas":"XI E"}]},"10":{"siswa":[{"nis":"252610196","nama":"MUHAMAD ALFIN ALHAMDI","kelas":"X E"},{"nis":"252610197","nama":"MUHAMAD NAYA AS SHIFA","kelas":"X E"},{"nis":"252610198","nama":"MUHAMAD SAEPULOH","kelas":"X E"},{"nis":"252610199","nama":"MUHAMMAD RIZKY PRATAMA","kelas":"X E"},{"nis":"252610200","nama":"NADILAH KHOERUNNISA","kelas":"X E"},{"nis":"252610201","nama":"NOVI INKA FAUZIAH","kelas":"X E"},{"nis":"252610202","nama":"QUINSHA ISLAMI SHAFIRA","kelas":"X E"},{"nis":"252610203","nama":"RAMA FADHILAH PUTRA","kelas":"X E"},{"nis":"252610204","nama":"RANGGA DZULQAIDAH","kelas":"X E"},{"nis":"252610205","nama":"RENDI RENALDI","kelas":"X E"},{"nis":"252610206","nama":"REVALINA AZZAHRA","kelas":"X E"},{"nis":"252610207","nama":"RISTA ANGGRAENI","kelas":"X E"},{"nis":"252610208","nama":"RONNA TRIANI PUTRI SAGALA","kelas":"X E"},{"nis":"252610209","nama":"SHERA RAMADHANI H","kelas":"X E"},{"nis":"252610210","nama":"SHERIN ADITYA","kelas":"X E"},{"nis":"252610211","nama":"SITI KURNIA SANDI","kelas":"X E"},{"nis":"252610212","nama":"SUCI WULANDARI","kelas":"X E"},{"nis":"252610213","nama":"TARINNA CHIKA CHANDRINIKA","kelas":"X E"},{"nis":"252610214","nama":"VIRLIANA ALFIRA","kelas":"X E"},{"nis":"252610215","nama":"YORI FEBRINA RWAL","kelas":"X E"},{"nis":"252610216","nama":"YULIA RAHMAWATI","kelas":"X E"},{"nis":"242510390","nama":"JIHAN DAYANA PUTRI","kelas":"XI E"},{"nis":"242510253","nama":"MAHMOUD AHMADINEJAD","kelas":"XI E"},{"nis":"242510255","nama":"MEISYA ADHILA HERMAWAN","kelas":"XI E"},{"nis":"242510114","nama":"MUHAMAD AZIZ ABDUL FATTAH","kelas":"XI E"},{"nis":"242510294","nama":"MUHAMMAD RIFQI AUZAN","kelas":"XI E"},{"nis":"242510046","nama":"NAYLA HAMIDAH KHOIRUNISA","kelas":"XI E"},{"nis":"242510296","nama":"NAZLA AULIA","kelas":"XI E"},{"nis":"242510300","nama":"RADITHYA NAUFAL FADHILAH","kelas":"XI E"},{"nis":"242510232","nama":"RAJU SHALAM","kelas":"XI E"},{"nis":"242510265","nama":"RAYSA MULYA NUGRAHA","kelas":"XI E"},{"nis":"242510266","nama":"RENHAT BALAGALUGU","kelas":"XI E"},{"nis":"252611436","nama":"RIFA NUR KHAIRA","kelas":"XI E"},{"nis":"242510088","nama":"SALMA FATHHYYAH ROBBU INDRAWAN","kelas":"XI E"},{"nis":"242510196","nama":"SHAFTRIA MUJAHID ALFARAUQI","kelas":"XI E"},{"nis":"242510130","nama":"WAFIQ AZIZAH RAMDHANI","kelas":"XI E"},{"nis":"242510308","nama":"YULIA RAHMAWATI","kelas":"XI E"}]},"11":{"siswa":[{"nis":"252610217","nama":"ABDUL LATIF A FAHRI","kelas":"X F"},{"nis":"252610218","nama":"AHMAD DAFA AFADIL","kelas":"X F"},{"nis":"252610219","nama":"ANDIKA NURBAN","kelas":"X F"},{"nis":"252610220","nama":"ANISA DESTIYANTI","kelas":"X F"},{"nis":"252610221","nama":"ASTI SILFIANI","kelas":"X F"},{"nis":"252610222","nama":"AZAILA PUTRI ARINDI","kelas":"X F"},{"nis":"252610223","nama":"DAVINA PUTRI ADISTY","kelas":"X F"},{"nis":"252610224","nama":"DHIA NAYLA AZHAR","kelas":"X F"},{"nis":"252610225","nama":"DIFAL SUKMA DJYAJI","kelas":"X F"},{"nis":"252610226","nama":"DIKA PIO BAMBINO","kelas":"X F"},{"nis":"252610227","nama":"ENENG JULIAH REPANI","kelas":"X F"},{"nis":"252610228","nama":"FAKHRUL RAIHANNUL HAKIM","kelas":"X F"},{"nis":"252610229","nama":"FEBI HAMZALAH","kelas":"X F"},{"nis":"252610230","nama":"INDRI WULAN SARI","kelas":"X F"},{"nis":"252610231","nama":"JONH RACHEL ANDREAS JAMESU","kelas":"X F"},{"nis":"252610232","nama":"JULIA RAHMA AZZAHRA","kelas":"X F"},{"nis":"252610233","nama":"MAHARA MATHIN ADZANISRI","kelas":"X F"},{"nis":"252610234","nama":"MAHARDIKA FAJAR MUHAMMAD","kelas":"X F"},{"nis":"252610235","nama":"MOCHAMMAD KEANAN DHIA","kelas":"X F"},{"nis":"252610236","nama":"MUHAMAD FAISAL","kelas":"X F"},{"nis":"252610237","nama":"NAZWA MAYFA AZZAHRA","kelas":"X F"},{"nis":"242510062","nama":"AGUS JUNAEDI","kelas":"XI F"},{"nis":"242510276","nama":"ALVIN MORENO","kelas":"XI F"},{"nis":"242510207","nama":"ANITA KIRANI","kelas":"XI F"},{"nis":"242510241","nama":"ANJANI ANGGITA PUTRI","kelas":"XI F"},{"nis":"242510208","nama":"APRILIANTI RAHMATILLAH RAMDANI","kelas":"XI F"},{"nis":"242510067","nama":"CHELSEA VIVIANTI","kelas":"XI F"},{"nis":"242510282","nama":"D. RAHMA APRILIA","kelas":"XI F"},{"nis":"242510008","nama":"DENZEL AREZA","kelas":"XI F"},{"nis":"242510142","nama":"ELSA KARISA PITRI","kelas":"XI F"},{"nis":"242510287","nama":"GILANG GINARSYAH","kelas":"XI F"},{"nis":"242510250","nama":"IMELDA ANATASYA","kelas":"XI F"},{"nis":"242510251","nama":"INDRA RANGGA LESMANA","kelas":"XI F"},{"nis":"242510289","nama":"JULIA DINI SAFITRI","kelas":"XI F"},{"nis":"242510076","nama":"KEISYA AULIA SYAHPUTRI","kelas":"XI F"},{"nis":"242510077","nama":"KHOFI HANIFAH","kelas":"XI F"},{"nis":"242510252","nama":"LUNA QUEENSHA MAHARANI","kelas":"XI F"},{"nis":"242510149","nama":"LUTHFI AINUR RIDHO","kelas":"XI F"}]},"12":{"siswa":[{"nis":"252610238","nama":"NISA AULIA","kelas":"X F"},{"nis":"252610239","nama":"NURUL INAYAH","kelas":"X F"},{"nis":"252610240","nama":"RAIHAN HAMDANI","kelas":"X F"},{"nis":"252610241","nama":"RASTI KAYLA SANTIKA","kelas":"X F"},{"nis":"252610243","nama":"REHAN PERMANA","kelas":"X F"},{"nis":"252610244","nama":"REVINA AULIA FADILLAH","kelas":"X F"},{"nis":"252610245","nama":"RHADITYA NUR ABDILLAH KHOWI","kelas":"X F"},{"nis":"252610246","nama":"RINI ANDRIANI","kelas":"X F"},{"nis":"252610247","nama":"RIRI FEBYANTI","kelas":"X F"},{"nis":"252610248","nama":"SAFA ALZENA","kelas":"X F"},{"nis":"252610249","nama":"SALSABILA HASNA NAZHIFAH","kelas":"X F"},{"nis":"252610250","nama":"SHAFA AMIRA PUTRI","kelas":"X F"},{"nis":"252610251","nama":"SINDI EKAWATI MEILANY","kelas":"X F"},{"nis":"252610252","nama":"SLAMET ALDIANSYAH","kelas":"X F"},{"nis":"252610253","nama":"SUCIA AMARTANI","kelas":"X F"},{"nis":"252610254","nama":"SYAWALINE MATHISYALIFAH DWIGUNAWAN","kelas":"X F"},{"nis":"252610255","nama":"TIARA TRI LESTARI","kelas":"X F"},{"nis":"252610256","nama":"YANTI SOBANA","kelas":"X F"},{"nis":"252610257","nama":"YAYU SAPIRA","kelas":"X F"},{"nis":"252610258","nama":"ZACHROTUS SIETA ARDELIS","kelas":"X F"},{"nis":"252610259","nama":"ZAKKY JAUHAR ANHAR","kelas":"X F"},{"nis":"242510220","nama":"M. RAFID NUGROHO","kelas":"XI F"},{"nis":"242510259","nama":"MUHAMMAD RASYA ZIYAULHAQ","kelas":"XI F"},{"nis":"242510267","nama":"RESTI NURLAILA SEPTIANI","kelas":"XI F"},{"nis":"242510122","nama":"RIZKA KHISBI MUFIDAH","kelas":"XI F"},{"nis":"242510123","nama":"RIZKI NUR FADILAH","kelas":"XI F"},{"nis":"242510269","nama":"RONI ZAKI","kelas":"XI F"},{"nis":"242510024","nama":"SALSA SALPIRA","kelas":"XI F"},{"nis":"242510089","nama":"SALSABILA","kelas":"XI F"},{"nis":"242510341","nama":"SELSY NITA PUTRI","kelas":"XI F"},{"nis":"242510093","nama":"SINTA LAURA","kelas":"XI F"},{"nis":"242510026","nama":"SITI ASYIFA DWI AULIA","kelas":"XI F"},{"nis":"242510307","nama":"SOPIAN ANDRIANA","kelas":"XI F"},{"nis":"242510127","nama":"SYAFIRA JULIANI SALSABILA","kelas":"XI F"},{"nis":"242510028","nama":"TIARA PUSPITA","kelas":"XI F"},{"nis":"242510344","nama":"YEHEZKIEL SIREGAR","kelas":"XI F"},{"nis":"242510096","nama":"ZASKIA AULIA","kelas":"XI F"},{"nis":"242510238","nama":"ZILDAN RADIKA YANWAR","kelas":"XI F"}]},"13":{"siswa":[{"nis":"252610260","nama":"AJENG PUTRI PRATIWI","kelas":"X G"},{"nis":"252610261","nama":"ALDI FIRMANSYAH","kelas":"X G"},{"nis":"252610262","nama":"ALFIAN BIBIT TRIMULYA","kelas":"X G"},{"nis":"252610263","nama":"ARYA PUTRA PAMUNGKAS","kelas":"X G"},{"nis":"252610264","nama":"AUDA RACHMA KHUSNUL MEUTIYA","kelas":"X G"},{"nis":"252610265","nama":"DAFINA MAISYA NURSABRINA","kelas":"X G"},{"nis":"252610266","nama":"DIMAS MAULANA","kelas":"X G"},{"nis":"252610267","nama":"FATIMAH AZZAHRA","kelas":"X G"},{"nis":"252610268","nama":"FUJI AJITA AIDI RAHMAN","kelas":"X G"},{"nis":"252610269","nama":"GISKA NOVIA NUR APRIANTI","kelas":"X G"},{"nis":"252610270","nama":"HARFA ALIF ARDIANSYAH","kelas":"X G"},{"nis":"252610271","nama":"INDRA ABIANSYAH","kelas":"X G"},{"nis":"252610272","nama":"JELITA SRI PITALOKA","kelas":"X G"},{"nis":"252610273","nama":"KAILA AGUSTINA","kelas":"X G"},{"nis":"252610274","nama":"KELLY NOORFITA","kelas":"X G"},{"nis":"252610275","nama":"KEYSA ASRI SHAKIRA","kelas":"X G"},{"nis":"252610276","nama":"KHAIRA SUTISNA WINATA","kelas":"X G"},{"nis":"252610277","nama":"LENNY CAHYASARI","kelas":"X G"},{"nis":"252610278","nama":"MARSHALL THARIQ IBRAHIM","kelas":"X G"},{"nis":"252610279","nama":"MELISA","kelas":"X G"},{"nis":"252610280","nama":"MUHAMAD HARIS","kelas":"X G"},{"nis":"252610281","nama":"MUHAMAD PADIL","kelas":"X G"},{"nis":"242510031","nama":"AGUS SALEH ZAMALLUDIN","kelas":"XI G"},{"nis":"242510203","nama":"AHMAD ENAYATULLAH","kelas":"XI G"},{"nis":"242510204","nama":"ALIF FABIAN ALBANI","kelas":"XI G"},{"nis":"242510065","nama":"ARYA LEGIFA SAPUTRA","kelas":"XI G"},{"nis":"242510035","nama":"BINTANG AZZAHRA FEBRIANTI","kelas":"XI G"},{"nis":"242510173","nama":"DWIANA AYESHA","kelas":"XI G"},{"nis":"242510284","nama":"ERID DWI SHANDY","kelas":"XI G"},{"nis":"242510285","nama":"EUIS NURMALASARI","kelas":"XI G"},{"nis":"242510010","nama":"FARHAN HIDAYAT","kelas":"XI G"},{"nis":"242510038","nama":"INTAN","kelas":"XI G"},{"nis":"242510179","nama":"IRMA RISMAYANTI","kelas":"XI G"},{"nis":"242510039","nama":"KAMILIA NAZWA MUTMAINAH","kelas":"XI G"},{"nis":"242510011","nama":"KEYLA AYU AZAHRA","kelas":"XI G"},{"nis":"242510012","nama":"LUNA REVITA SARI","kelas":"XI G"},{"nis":"242510014","nama":"M. RAFY ZIDAN","kelas":"XI G"},{"nis":"242510291","nama":"MAULANA DWI ANDIKA","kelas":"XI G"},{"nis":"242510256","nama":"MELISA LUSI RASTANTI","kelas":"XI G"},{"nis":"242510150","nama":"MOCHAMAD JUSUP ZAELANI","kelas":"XI G"},{"nis":"242510043","nama":"MUHAMAD FAKHRI AL MAHFUD","kelas":"XI G"},{"nis":"242510186","nama":"MUHAMMAD DAFFA AL BUKHORY","kelas":"XI G"}]},"14":{"siswa":[{"nis":"252610282","nama":"MUHAMMAD IKHSAN SEPTIAN ALGHIFARI","kelas":"X G"},{"nis":"252610283","nama":"MUHAMMAD IZAM PEBRIAN","kelas":"X G"},{"nis":"252610284","nama":"NATASYA NUR YANTI","kelas":"X G"},{"nis":"252610285","nama":"NURROCHIM BUDI LESTARI","kelas":"X G"},{"nis":"252610286","nama":"NURUL SAENI","kelas":"X G"},{"nis":"252610287","nama":"REIFAN SETIA NUGRAHA","kelas":"X G"},{"nis":"252610288","nama":"RETMA ADELIA","kelas":"X G"},{"nis":"252610289","nama":"REVINDRA APRILLIANSYAH","kelas":"X G"},{"nis":"252610290","nama":"RIDWAN RADITYA","kelas":"X G"},{"nis":"252610291","nama":"RISMA SULASTRI","kelas":"X G"},{"nis":"252610292","nama":"RISTY FEBRIANA","kelas":"X G"},{"nis":"252610293","nama":"RIZKI MARDIANSYAH","kelas":"X G"},{"nis":"252610294","nama":"SALMA NURWINDI","kelas":"X G"},{"nis":"252610295","nama":"SELY YELIYANA","kelas":"X G"},{"nis":"252610296","nama":"SEPTIA TRI WAHYUNINGTYAS","kelas":"X G"},{"nis":"252610297","nama":"SINAR EMIGESTIN SIMANJUNTAK","kelas":"X G"},{"nis":"252610298","nama":"SYAHLA DEWI KAMILLA","kelas":"X G"},{"nis":"252610299","nama":"SYAHRUL AGUSTIN","kelas":"X G"},{"nis":"252610300","nama":"SYIFA PUTRI FADILAH","kelas":"X G"},{"nis":"252610301","nama":"SYNTYA MUHTARYAH","kelas":"X G"},{"nis":"252610302","nama":"WINDA NABILA","kelas":"X G"},{"nis":"252610303","nama":"YUYUN YUNENGSIH","kelas":"X G"},{"nis":"242510257","nama":"MUHAMMAD FAHRIZAL","kelas":"XI G"},{"nis":"242510258","nama":"MUHAMMAD RAFFI HERDIANTO","kelas":"XI G"},{"nis":"242510154","nama":"NAJWAR","kelas":"XI G"},{"nis":"242510261","nama":"NAYLA OKTARINA","kelas":"XI G"},{"nis":"242510263","nama":"NURLIPTIA","kelas":"XI G"},{"nis":"242510230","nama":"RAFAEL PARLINDUNGAN NAIBAHO","kelas":"XI G"},{"nis":"242510157","nama":"RANIA SITI RUBIAH","kelas":"XI G"},{"nis":"242510302","nama":"REVALINA AULYA PUTRI","kelas":"XI G"},{"nis":"242510233","nama":"REZA FIRMANSYAH","kelas":"XI G"},{"nis":"242510020","nama":"RIFKI SEPTIAN WAYUDI","kelas":"XI G"},{"nis":"242510160","nama":"SANDRA MAHARANI","kelas":"XI G"},{"nis":"242510198","nama":"SHYFA AZZAHRA","kelas":"XI G"},{"nis":"242510306","nama":"SITI MARYAM","kelas":"XI G"},{"nis":"242510057","nama":"SITI NANJAR SUMARAH","kelas":"XI G"},{"nis":"242510058","nama":"SRI RAHAYU","kelas":"XI G"},{"nis":"242510027","nama":"SYIFA ANNAZA RADISTY","kelas":"XI G"},{"nis":"242510059","nama":"TIRZA GREACESELDA PERMANA PUTRI","kelas":"XI G"},{"nis":"242510095","nama":"VERA LESTARI","kelas":"XI G"},{"nis":"242510309","nama":"ZAHRA FARIHAH","kelas":"XI G"}]},"15":{"siswa":[{"nis":"252610304","nama":"ADITIYA RESMANA","kelas":"X H"},{"nis":"252610305","nama":"AFTAR FAUZYAN MAULIMALIK","kelas":"X H"},{"nis":"252610306","nama":"AGNI NURAENI","kelas":"X H"},{"nis":"252610307","nama":"AGUNG FABI RAMADAN","kelas":"X H"},{"nis":"252610308","nama":"AIDIL PUTRA AL-IKHSAN","kelas":"X H"},{"nis":"252610309","nama":"ALVARD IKHSAN IBRAHIM","kelas":"X H"},{"nis":"252610310","nama":"ARYA PRIYADI","kelas":"X H"},{"nis":"252610311","nama":"AUFA KHALILAH PUTRI","kelas":"X H"},{"nis":"252610312","nama":"CALVIN FATIR ROHIMAT","kelas":"X H"},{"nis":"252610313","nama":"CHARLY TUA NAINGGOLAN","kelas":"X H"},{"nis":"252610314","nama":"ELVIRA JULIANTI","kelas":"X H"},{"nis":"252610315","nama":"FEBI PEBRIANTI","kelas":"X H"},{"nis":"252610316","nama":"FEBRIYANA AZZAHRA","kelas":"X H"},{"nis":"252610317","nama":"GALIH NUR ADITYA","kelas":"X H"},{"nis":"252610318","nama":"GESYA AL GANESYA","kelas":"X H"},{"nis":"252610319","nama":"GIOVANI AGIKA","kelas":"X H"},{"nis":"252610320","nama":"GRECHI SEFIA GUSTIAR","kelas":"X H"},{"nis":"252610321","nama":"JESSIKA NUR SYAHIRA","kelas":"X H"},{"nis":"252610322","nama":"KHOIRUN NISA","kelas":"X H"},{"nis":"252610323","nama":"KHUMAIROH KHOIRUNNISA","kelas":"X H"},{"nis":"252610324","nama":"M CHAESAR MAHARDHIKA","kelas":"X H"},{"nis":"252610325","nama":"MELDA NURMALIAH","kelas":"X H"},{"nis":"242510239","nama":"AHMAD FAHRIZAL","kelas":"XI H"},{"nis":"242510205","nama":"ALLIN ANZAINI NUR'SAFAAH","kelas":"XI H"},{"nis":"242510240","nama":"ALMA MI'RAJ ZIBA QHANITA","kelas":"XI H"},{"nis":"242510137","nama":"ANISSA GUSTINA","kelas":"XI H"},{"nis":"242510277","nama":"ARIEF MAULANA SHIDDIQ","kelas":"XI H"},{"nis":"242510278","nama":"ATHA HILAL PUTRA","kelas":"XI H"},{"nis":"242510279","nama":"AYU SRI ANDINI","kelas":"XI H"},{"nis":"242510209","nama":"BERY FARHAT HAJIAN","kelas":"XI H"},{"nis":"242510068","nama":"DAPA HANAFI AL MAKSUM","kelas":"XI H"},{"nis":"242510210","nama":"DESY DAMAYANTI SITANGGANG","kelas":"XI H"},{"nis":"242510245","nama":"DIANA LESTARI","kelas":"XI H"},{"nis":"242510106","nama":"DYLAN KHAIRUL IKHWAN","kelas":"XI H"},{"nis":"242510247","nama":"FAHMI ASHSHIDIQ","kelas":"XI H"},{"nis":"242510249","nama":"HASNA NA'ILA SAFINATUNNAJA","kelas":"XI H"},{"nis":"242510319","nama":"IGNASIUS OKTAVIANO NAIBAHO","kelas":"XI H"},{"nis":"242510217","nama":"JULIA TRI PANGESTI","kelas":"XI H"},{"nis":"242510112","nama":"MUCHAMMAD ARVA TRIYAS CHANDRA","kelas":"XI H"}]},"16":{"siswa":[{"nis":"252610326","nama":"MOCH. ADITIA PERMANA RAMDANI","kelas":"X H"},{"nis":"252610327","nama":"MUHAMAD FAUZAN PRIYADI","kelas":"X H"},{"nis":"252610328","nama":"MUHAMAD NUR RIDHO HARUN","kelas":"X H"},{"nis":"252610329","nama":"MUHAMMAD RAFLY","kelas":"X H"},{"nis":"252610330","nama":"MUHAMMAD ZIDAN ISTIQOMAH","kelas":"X H"},{"nis":"252610331","nama":"NABILA MAESAROH DENADI","kelas":"X H"},{"nis":"252610332","nama":"NAZWA KHOIRUNNISA","kelas":"X H"},{"nis":"252610333","nama":"NESYA AULIA","kelas":"X H"},{"nis":"252610334","nama":"NOVIA ANINDAH PUTRI S","kelas":"X H"},{"nis":"252610335","nama":"RAISSA DANIYAH RAHMA","kelas":"X H"},{"nis":"252610336","nama":"RIVANI SINTIYA DEWI","kelas":"X H"},{"nis":"252610337","nama":"ROSELA ALAWIAH","kelas":"X H"},{"nis":"252610338","nama":"SAFA NAUMI OKTAVIA","kelas":"X H"},{"nis":"252610339","nama":"SAHID AL FARIZI","kelas":"X H"},{"nis":"252610340","nama":"SELVINA OKTAFIANI","kelas":"X H"},{"nis":"252610341","nama":"SINA AIRA","kelas":"X H"},{"nis":"252610342","nama":"SITI KIRANI NUR FAZIRA","kelas":"X H"},{"nis":"252610343","nama":"SYIFA AZMA AULIA","kelas":"X H"},{"nis":"252610344","nama":"UFAIRA AZKA GUNAWAN","kelas":"X H"},{"nis":"252610345","nama":"WINA AMELIA","kelas":"X H"},{"nis":"252610346","nama":"YUNDI MEIDI TRIYANI","kelas":"X H"},{"nis":"252610347","nama":"ZIDNY ILMAN NAFIAN ADNAN","kelas":"X H"},{"nis":"242510187","nama":"NABILAH ALEFIA ZAIN","kelas":"XI H"},{"nis":"242510115","nama":"NADIA SITI FAUZIAH ARIFAH","kelas":"XI H"},{"nis":"242510225","nama":"NAYLLA ARTILA RASYID","kelas":"XI H"},{"nis":"242510155","nama":"PUSPITA DEWI PUTRI","kelas":"XI H"},{"nis":"242510156","nama":"RAISSYA AGUSTIN","kelas":"XI H"},{"nis":"242510264","nama":"RANDI JULIANDI","kelas":"XI H"},{"nis":"242510053","nama":"REFI MUHAMMAD RIZKI","kelas":"XI H"},{"nis":"242510158","nama":"RENATA TRISTA CHAERANY","kelas":"XI H"},{"nis":"242510121","nama":"RISVA MELIDA","kelas":"XI H"},{"nis":"242510268","nama":"ROFFI ANAFI ALFADILAH","kelas":"XI H"},{"nis":"242510055","nama":"ROUDROTUL ZANNAHTUL FAHIRA","kelas":"XI H"},{"nis":"242510195","nama":"SANDRY SYAHPUTRA","kelas":"XI H"},{"nis":"242510271","nama":"SEIKHA MONA RAYANI","kelas":"XI H"},{"nis":"242510197","nama":"SHIPA","kelas":"XI H"},{"nis":"242510273","nama":"SUCI RAHMAWATI","kelas":"XI H"},{"nis":"242510274","nama":"YOAN YOLANDA","kelas":"XI H"}]},"17":{"siswa":[{"nis":"252610348","nama":"AZKA AFDHAL SULAEMAN","kelas":"X I"},{"nis":"252610349","nama":"ADINDA JOCASTA FELICHA RAMDHANI","kelas":"X I"},{"nis":"252610350","nama":"ALMIRA MAULIA WAHYU","kelas":"X I"},{"nis":"252610351","nama":"ARLA AULIANI RAHMAH","kelas":"X I"},{"nis":"252610352","nama":"AZNI SALSABILA PUTRI","kelas":"X I"},{"nis":"252610353","nama":"AZWA AULIA RAHMAN","kelas":"X I"},{"nis":"252610354","nama":"CHEP DIRAN ANDRIYANSYAH","kelas":"X I"},{"nis":"252610355","nama":"CLARISSA EVRIGELISTA","kelas":"X I"},{"nis":"252610356","nama":"DAVI WILDANSYAH","kelas":"X I"},{"nis":"252610357","nama":"DIANA APRIANTI","kelas":"X I"},{"nis":"252610358","nama":"FADLY ANABILAL MAULANA","kelas":"X I"},{"nis":"252610359","nama":"FATIMATUL WAFA SALSABILA","kelas":"X I"},{"nis":"252610360","nama":"GILANG ANGGA FATA","kelas":"X I"},{"nis":"252610361","nama":"JAELANI","kelas":"X I"},{"nis":"252610362","nama":"M RIZQI BINTANG SUJANA PUTRA","kelas":"X I"},{"nis":"252610363","nama":"M. ANDHIKA YUDIS PRATAMA","kelas":"X I"},{"nis":"252610364","nama":"M. CAESAR TASHA","kelas":"X I"},{"nis":"252610365","nama":"MIMI SEPTIANI","kelas":"X I"},{"nis":"252610366","nama":"MOCH. ARSYAD HAFIZ MUBAROK","kelas":"X I"},{"nis":"252610367","nama":"MUALIF FAWWAZIAN PRATAMA","kelas":"X I"},{"nis":"252610368","nama":"MUHAMMAD FIKRAN REZKY ADITYA","kelas":"X I"},{"nis":"252610369","nama":"MUHAMMAD HILMY GHAUZAN","kelas":"X I"},{"nis":"252610370","nama":"MUHAMMAD KURNIA","kelas":"X I"},{"nis":"242510168","nama":"ALIA ANJANI","kelas":"XI I"},{"nis":"242510169","nama":"ALIEF BASMALLAH SUDRAJAT","kelas":"XI I"},{"nis":"242510100","nama":"AL-ZAHRA RASYHA SULAEMAN","kelas":"XI I"},{"nis":"242510171","nama":"ANITA EKA SITI AFIFAH","kelas":"XI I"},{"nis":"242510242","nama":"ARSY AULYA NURROFI","kelas":"XI I"},{"nis":"242510104","nama":"DELEN DWI PUTRI","kelas":"XI I"},{"nis":"242510246","nama":"EBIGAEL RESIANA FITRI SIHOTANG","kelas":"XI I"},{"nis":"242510144","nama":"FIKRI DEVIN NADA PRATAMA","kelas":"XI I"},{"nis":"242510212","nama":"FINA HISHNIYATUL FITHRIYAH","kelas":"XI I"},{"nis":"242510145","nama":"GYRAL RESDIANA ZAVIER","kelas":"XI I"},{"nis":"242510176","nama":"HANIA SALSABILA","kelas":"XI I"},{"nis":"242510218","nama":"KEYSIA AMALIA PERTIWI","kelas":"XI I"},{"nis":"242510322","nama":"LUTHFIYYAH CINTA AZZAHRA","kelas":"XI I"},{"nis":"242510219","nama":"M LUTPI NP APRIANSAH","kelas":"XI I"},{"nis":"242510015","nama":"MAHESA FRAMANCA ADITYA","kelas":"XI I"},{"nis":"242510254","nama":"MAULANA YUSUP RAMDANI","kelas":"XI I"},{"nis":"242510222","nama":"MESLIMA WAHYUNI SIMALANGO","kelas":"XI I"}]},"18":{"siswa":[{"nis":"252610371","nama":"NADA RAMEYZA ELYA","kelas":"X I"},{"nis":"252610372","nama":"NADINE NUR RAMADHIANI","kelas":"X I"},{"nis":"252610373","nama":"NADYA RIZKA PUSAKA HIDAYAT","kelas":"X I"},{"nis":"252610374","nama":"NAOHMI APRILITHA BR SAMOSIR","kelas":"X I"},{"nis":"252610375","nama":"NAYLA SITI NURRIZKYKA","kelas":"X I"},{"nis":"252610376","nama":"NAZWA GISYA ALNI","kelas":"X I"},{"nis":"252610377","nama":"RANI NOVIYANTI","kelas":"X I"},{"nis":"252610378","nama":"RIRIN YULIANA","kelas":"X I"},{"nis":"252610379","nama":"RIZKI MAULANA","kelas":"X I"},{"nis":"252610380","nama":"SAHRIL MAULANA ALGANI","kelas":"X I"},{"nis":"252610381","nama":"SAKINAH HOERUNNISA","kelas":"X I"},{"nis":"252610382","nama":"SALMA SABILA","kelas":"X I"},{"nis":"252610383","nama":"SALSHA SHABILLA","kelas":"X I"},{"nis":"252610384","nama":"SALWA JUWITA","kelas":"X I"},{"nis":"252610385","nama":"SILVYA MEGADIWANTI","kelas":"X I"},{"nis":"252610386","nama":"SUSI RAHAYU","kelas":"X I"},{"nis":"252610387","nama":"TRI MULYANI","kelas":"X I"},{"nis":"252610388","nama":"VERA NATALIA","kelas":"X I"},{"nis":"252610389","nama":"WINDRA PURNAMA","kelas":"X I"},{"nis":"252610390","nama":"YARA KHANSA AMIRA","kelas":"X I"},{"nis":"252610391","nama":"ZYA AYU OVELIA","kelas":"X I"},{"nis":"252610392","nama":"ADELYA SINTYA RAMDHANI","kelas":"X J"},{"nis":"252610393","nama":"ADZKA FAUZI","kelas":"X J"},{"nis":"252610394","nama":"ALFINANDO GALA SATRIA","kelas":"X J"},{"nis":"252610395","nama":"AQILA LATIFA ZAHRA","kelas":"X J"},{"nis":"252610396","nama":"D. LINTANG AYU SUKMAPRANA","kelas":"X J"},{"nis":"252610397","nama":"DAVIN ALZRIYANA RAMADHAN","kelas":"X J"},{"nis":"252610398","nama":"DAVIT RENO VERNANDO SIBARANI","kelas":"X J"},{"nis":"252610399","nama":"DE IRWAN SAPUTRA","kelas":"X J"},{"nis":"252610400","nama":"DEA SITI NURAENI","kelas":"X J"},{"nis":"252610401","nama":"DELLA FANI PATMAWATI","kelas":"X J"},{"nis":"252610402","nama":"DEVA","kelas":"X J"},{"nis":"252610403","nama":"DINI FAUZI RAHMASARI","kelas":"X J"},{"nis":"252610404","nama":"FAJAR FAUDZAN","kelas":"X J"},{"nis":"252610405","nama":"FAUZAN FAKHRI MUTAKIN","kelas":"X J"},{"nis":"252610406","nama":"KAYYIS KHAILA NUR'AINI","kelas":"X J"},{"nis":"252610407","nama":"KURNIA ROHIMAN","kelas":"X J"},{"nis":"252610408","nama":"M. DZAKI IMTIYAAZ","kelas":"X J"},{"nis":"252610409","nama":"M. RADITIA SAMIAJI","kelas":"X J"},{"nis":"252610410","nama":"M. RAJIB","kelas":"X J"},{"nis":"252610411","nama":"M.RASYA AL-AZIS","kelas":"X J"}]},"19":{"siswa":[{"nis":"252610412","nama":"MOCHAMAD REVALINO AL BEPE","kelas":"X J"},{"nis":"252610413","nama":"NABILA JULIYAWATI AZHARA","kelas":"X J"},{"nis":"252610414","nama":"NAYLA SAFITRI SYAEFUL","kelas":"X J"},{"nis":"252610415","nama":"NAZLAN FAJAR RAJABBI","kelas":"X J"},{"nis":"252610416","nama":"NAZWA NUR ARMELIA","kelas":"X J"},{"nis":"252610417","nama":"NENG DESI","kelas":"X J"},{"nis":"252610418","nama":"NIFTAH RASID ABDILAH","kelas":"X J"},{"nis":"252610419","nama":"NOVALIZA ANGGITA","kelas":"X J"},{"nis":"252610420","nama":"PUTRI AGNASYA","kelas":"X J"},{"nis":"252610421","nama":"RAFKA PUTRA PRATAMA","kelas":"X J"},{"nis":"252610422","nama":"REGINA PUTRI","kelas":"X J"},{"nis":"252610423","nama":"RIRIN ANJANI","kelas":"X J"},{"nis":"252610424","nama":"RYANTI NUR AULIA","kelas":"X J"},{"nis":"252610425","nama":"SAKYRA LIANA PUTRI","kelas":"X J"},{"nis":"252610426","nama":"SALSABILA DANIAL AL ARES","kelas":"X J"},{"nis":"252610427","nama":"SATRIYAN","kelas":"X J"},{"nis":"252610428","nama":"SHAFA NURAENY","kelas":"X J"},{"nis":"252610429","nama":"SHERIN SRI LESTARI","kelas":"X J"},{"nis":"252610430","nama":"SILLVANA QUEEN SATURDAY","kelas":"X J"},{"nis":"252610431","nama":"SITI LATIFA FAHRIAH","kelas":"X J"},{"nis":"252610432","nama":"TIARA SALSABILA","kelas":"X J"},{"nis":"252610433","nama":"WENDI PERMANSYAH","kelas":"X J"},{"nis":"252610434","nama":"ZAHRA RAHMAWATI","kelas":"X J"},{"nis":"242510223","nama":"MOCHAMAD AKBAR FUGHYANTARA","kelas":"XI I"},{"nis":"242510017","nama":"MUHAMMAD RIZQI ADITHIA","kelas":"XI I"},{"nis":"242510260","nama":"NASA AIRA NADINI","kelas":"XI I"},{"nis":"242510226","nama":"NAZWA NABILA KHOERUNNISA","kelas":"XI I"},{"nis":"242510227","nama":"NETI NUR AULIA","kelas":"XI I"},{"nis":"242510329","nama":"NUR SOPIAH","kelas":"XI I"},{"nis":"242510228","nama":"NURHAZIZAH","kelas":"XI I"},{"nis":"252611438","nama":"RAFFYE HADYAN VALDIS TAHARA HIDAYAT","kelas":"XI I"},{"nis":"242510333","nama":"RAJIB AINUL KARIM","kelas":"XI I"},{"nis":"242510234","nama":"RINI FEBRIYANI","kelas":"XI I"},{"nis":"242510021","nama":"RIRIN DWI ARYANTI","kelas":"XI I"},{"nis":"242510304","nama":"RIZQI MUSTOPA","kelas":"XI I"},{"nis":"242510161","nama":"SAZKYA AZAHRA","kelas":"XI I"},{"nis":"242510199","nama":"SITI ANISAH","kelas":"XI I"},{"nis":"242510200","nama":"SUKMA AYU AGUSTINA","kelas":"XI I"},{"nis":"242510029","nama":"VINEU QONITAH CARLIM","kelas":"XI I"},{"nis":"242510166","nama":"ZAHRA EZAR PRATIWI","kelas":"XI I"}]}};
-const SCHEDULE = [
-  {hari:"Selasa, 2 Juni 2026", tgl:"02-06",sesi:[
-    {s:1,waktu:"07.00-08.30",x:"PABP",xi:"PABP"},
-    {s:2,waktu:"08.45-10.15",x:"Seni Rupa",xi:"Seni Rupa"},
-    {s:3,waktu:"10.30-12.00",x:"Bahasa Sunda",xi:"Bahasa Sunda"}
-  ]},
-  {hari:"Rabu, 3 Juni 2026",tgl:"03-06",sesi:[
-    {s:1,waktu:"07.00-08.30",x:"Matematika",xi:"Matematika"},
-    {s:2,waktu:"08.45-10.15",x:"Sejarah",xi:"Sejarah"},
-    {s:3,waktu:"10.30-12.00",x:"PJOK",xi:"PJOK"}
-  ]},
-  {hari:"Kamis, 4 Juni 2026",tgl:"04-06",sesi:[
-    {s:1,waktu:"07.00-08.30",x:"Sosiologi",xi:"Sosiologi (MP)"},
-    {s:2,waktu:"08.45-10.15",x:"Biologi",xi:"Biologi (MP)"},
-    {s:3,waktu:"10.30-12.00",x:"Kimia",xi:"Kimia (MP) / Bahasa Arab (MP)"}
-  ]},
-  {hari:"Jumat, 5 Juni 2026",tgl:"05-06",sesi:[
-    {s:1,waktu:"07.00-08.30",x:"Bahasa Inggris",xi:"Bahasa Inggris"},
-    {s:2,waktu:"08.45-10.15",x:"Fisika",xi:"Fisika (MP)"},
-    {s:3,waktu:"10.30-11.30",x:"Pendidikan Pancasila",xi:"Pendidikan Pancasila"}
-  ]},
-  {hari:"Senin, 8 Juni 2026",tgl:"08-06",sesi:[
-    {s:1,waktu:"07.00-08.30",x:"Bahasa Indonesia",xi:"Bahasa Indonesia"},
-    {s:2,waktu:"08.45-10.15",x:"Ekonomi",xi:"Ekonomi (MP)"},
-    {s:3,waktu:"10.30-12.00",x:"—",xi:"B.Inggris TL / Mat.TL (MP)"}
-  ]},
-  {hari:"Selasa, 9 Juni 2026",tgl:"09-06",sesi:[
-    {s:1,waktu:"07.00-08.30",x:"TIK",xi:"Informatika (MP)"},
-    {s:2,waktu:"08.45-10.15",x:"Geografi",xi:"Geografi (MP)"},
-    {s:3,waktu:"10.30-12.00",x:"—",xi:"PKWU"}
-  ]}
-];
-
-// STATE MANAGEMENT
-let currentRoom = "1";
-let currentDay = 0;
-let currentSesi = 1;
-let attendance = {};
-let unsubscribeSync = null;
-
-function getKey(room, nis) {
-  const d = SCHEDULE[currentDay];
-  return `R${room}_${d.tgl}_S${currentSesi}_${nis}`;
-}
-
-function getStatus(nis) {
-  return attendance[getKey(currentRoom, nis)] || null;
-}
-
-// UPDATE STATUS
-async function setStatus(nis, status) {
-  const k = getKey(currentRoom, nis);
-  const oldStatus = attendance[k];
-  
-  if (oldStatus === status) {
-    delete attendance[k];
-  } else {
-    attendance[k] = status;
-  }
-  
-  updateStats();
-  renderStudents();
-  
-  if (currentUser && masterDocRef) {
-      try {
-          if (oldStatus === status) {
-               await setDoc(masterDocRef, { [k]: deleteField() }, { merge: true });
-          } else {
-               await setDoc(masterDocRef, { [k]: status }, { merge: true });
-          }
-      } catch (err) {
-          console.error("Error saving status:", err);
-          showToast("Gagal menyimpan ke cloud. Coba lagi.");
-      }
-  }
-}
-
-function updateStats() {
-  const room = ROOMS[currentRoom];
-  if (!room) return;
-  let h=0,a=0,i=0,s=0,filled=0;
-  room.siswa.forEach(sw => {
-    const st = getStatus(sw.nis);
-    if(st==='H') h++;
-    else if(st==='A') a++;
-    else if(st==='I') i++;
-    else if(st==='S') s++;
-    if(st) filled++;
-  });
-  document.getElementById('s-hadir').textContent=h;
-  document.getElementById('s-alfa').textContent=a;
-  document.getElementById('s-izin').textContent=i;
-  document.getElementById('s-sakit').textContent=s;
-  document.getElementById('fillCount').textContent=filled;
-  document.getElementById('totalCount').textContent=room.siswa.length;
-  updateSummary();
-}
-
-function updateSummary() {
-  let totalH=0,totalA=0,totalI=0,totalS=0,totalAll=0;
-  Object.keys(ROOMS).forEach(r => {
-    ROOMS[r].siswa.forEach(sw=>{
-      const d=SCHEDULE[currentDay];
-      const k=`R${r}_${d.tgl}_S${currentSesi}_${sw.nis}`;
-      const st=attendance[k];
-      totalAll++;
-      if(st==='H') totalH++;
-      else if(st==='A') totalA++;
-      else if(st==='I') totalI++;
-      else if(st==='S') totalS++;
-    });
-  });
-  const pct = totalAll>0 ? Math.round((totalH/totalAll)*100) : 0;
-  document.getElementById('summaryGrid').innerHTML=`
-    <div class="summary-card" style="background:var(--hadir-bg)"><div class="s-num" style="color:var(--hadir)">${totalH}</div><div class="s-lbl" style="color:var(--hadir)">Hadir</div></div>
-    <div class="summary-card" style="background:var(--alfa-bg)"><div class="s-num" style="color:var(--alfa)">${totalA}</div><div class="s-lbl" style="color:var(--alfa)">Alfa</div></div>
-    <div class="summary-card" style="background:var(--izin-bg)"><div class="s-num" style="color:var(--izin)">${totalI}</div><div class="s-lbl" style="color:var(--izin)">Izin</div></div>
-    <div class="summary-card" style="background:var(--sakit-bg)"><div class="s-num" style="color:var(--sakit)">${totalS}</div><div class="s-lbl" style="color:var(--sakit)">Sakit</div></div>
-    <div class="summary-card" style="background:var(--bg)"><div class="s-num" style="color:var(--primary-dark)">${totalAll}</div><div class="s-lbl" style="color:var(--text-muted)">Total</div></div>
-  `;
-  document.getElementById('progressBar').style.width=pct+'%';
-  document.getElementById('progressLabel').textContent=pct+'% siswa hadir dari seluruh ruangan';
-}
-
-function renderStudents() {
-  const searchEl = document.getElementById('searchInput');
-  const q = searchEl ? searchEl.value.toLowerCase() : '';
-  const room = ROOMS[currentRoom];
-  if (!room) return;
-  const list = document.getElementById('studentList');
-  const filtered = room.siswa.filter(sw => sw.nama.toLowerCase().includes(q) || sw.nis.includes(q));
-
-  if(!filtered.length){
-    list.innerHTML='<div class="empty">Tidak ada siswa ditemukan</div>';
-    return;
-  }
-
-  list.innerHTML = filtered.map((sw,idx)=>{
-    const st = getStatus(sw.nis) || '';
-    return `<div class="student-row" data-status="${st==='H'?'HADIR':st==='A'?'ALFA':st==='I'?'IZIN':st==='S'?'SAKIT':''}">
-      <span class="student-no">${idx+1}</span>
-      <div class="student-info">
-        <div class="student-name">${sw.nama}</div>
-        <div class="student-nis">NIS: ${sw.nis} <span class="class-tag">${sw.kelas}</span></div>
-      </div>
-      <div class="status-buttons">
-        <button class="btn-status btn-hadir${st==='H'?' active':''}" onclick="setStatus('${sw.nis}','H')">✓ Hadir</button>
-        <button class="btn-status btn-alfa${st==='A'?' active':''}" onclick="setStatus('${sw.nis}','A')">✗ Alfa</button>
-        <button class="btn-status btn-izin${st==='I'?' active':''}" onclick="setStatus('${sw.nis}','I')">◷ Izin</button>
-        <button class="btn-status btn-sakit${st==='S'?' active':''}" onclick="setStatus('${sw.nis}','S')">+ Sakit</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function selectRoom(r) {
-  currentRoom = r.toString();
-  const roomKeys = Object.keys(ROOMS).sort((a, b) => parseInt(a) - parseInt(b));
-  document.querySelectorAll('.nav-tab').forEach((t,i) => t.classList.toggle('active', roomKeys[i] == r));
-  document.getElementById('roomBadge').textContent='R.'+r;
-  
-  const classesInRoom = [...new Set(ROOMS[r].siswa.map(s => s.kelas.split(' ')[0]))].join(' & ');
-  document.getElementById('roomClass').textContent = 'Kelas ' + classesInRoom;
-  
-  document.getElementById('searchInput').value='';
-  updateStats();
-  renderStudents();
-}
-
-function selectDay(d) {
-  currentDay = d;
-  document.querySelectorAll('.day-pill').forEach((p,i) => p.classList.toggle('active', i===d));
-  renderSesiPills();
-  updateMapelBadge();
-  updateStats();
-  renderStudents();
-}
-
-function selectSesi(s) {
-  currentSesi = s;
-  document.querySelectorAll('.sesi-pill').forEach((p,i) => p.classList.toggle('active', i===s-1));
-  updateMapelBadge();
-  updateStats();
-  renderStudents();
-}
-
-function updateMapelBadge() {
-  const d = SCHEDULE[currentDay];
-  const sesi = d.sesi[currentSesi-1];
-  
-  let mapelText = sesi.x === sesi.xi ? sesi.x : `X: ${sesi.x} | XI: ${sesi.xi}`;
-  document.getElementById('mapelBadge').textContent = '📚 '+mapelText+' | '+sesi.waktu;
-}
-
-function renderSesiPills() {
-  const d = SCHEDULE[currentDay];
-  const cont = document.getElementById('sesiPills');
-  cont.innerHTML = d.sesi.map((s,i)=>`<span class="pill sesi-pill${i===currentSesi-1?' active':''}" onclick="selectSesi(${s.s})">Sesi ${s.s}</span>`).join('');
-}
-
-// BATCH UPDATE TO CLOUD
-async function setAllHadir() {
-  const room = ROOMS[currentRoom];
-  const updates = {};
-  
-  room.siswa.forEach(sw => { 
-      const k = getKey(currentRoom, sw.nis);
-      attendance[k] = 'H'; 
-      updates[k] = 'H';
-  });
-  
-  updateStats(); renderStudents();
-  showToast('✓ Semua siswa Ruang '+currentRoom+' ditandai HADIR');
-  
-  if(currentUser && masterDocRef) {
-      document.getElementById('loader').classList.add('active');
-      await setDoc(masterDocRef, updates, { merge: true });
-      document.getElementById('loader').classList.remove('active');
-  }
-}
-
-// BATCH DELETE FROM CLOUD
-async function resetRoom() {
-  const room = ROOMS[currentRoom];
-  const updates = {};
-  
-  room.siswa.forEach(sw => { 
-      const k = getKey(currentRoom, sw.nis);
-      delete attendance[k]; 
-      updates[k] = deleteField();
-  });
-  
-  updateStats(); renderStudents();
-  showToast('↺ Absensi Ruang '+currentRoom+' direset');
-  
-  if(currentUser && masterDocRef) {
-      document.getElementById('loader').classList.add('active');
-      await setDoc(masterDocRef, updates, { merge: true });
-      document.getElementById('loader').classList.remove('active');
-  }
-}
-
-function printAbsensi() {
-  const room = ROOMS[currentRoom];
-  const d = SCHEDULE[currentDay];
-  const sesi = d.sesi[currentSesi-1];
-  const classesInRoom = [...new Set(room.siswa.map(s => s.kelas.split(' ')[0]))].join(' & ');
-  let mapelText = sesi.x === sesi.xi ? sesi.x : `X: ${sesi.x} - XI: ${sesi.xi}`;
-  
-  document.getElementById('printHeader').innerHTML=`
-    <h2>ABSENSI ASAT 2026 — SMAN 1 CIPATAT</h2>
-    <p><strong>Ruangan ${currentRoom}</strong> | Kelas ${classesInRoom} | ${d.hari} | ${sesi.waktu}</p>
-    <p>Mata Pelajaran: ${mapelText}</p>
-    <p>Pengawas: ${loggedInPengawas}</p>
-  `;
-  window.print();
-}
-
-function exportExcel() {
-  const room = ROOMS[currentRoom];
-  const d = SCHEDULE[currentDay];
-  const sesi = d.sesi[currentSesi-1];
-  
-  let dataSiswa = [
-    ["No", "NIS", "Nama", "Kelas", "Status", "Mata Pelajaran", "Tanggal", "Sesi", "Pengawas"]
-  ];
-
-  let h=0, sakit = [], izin = [], alfa = [], belumDiisi = 0;
-
-  room.siswa.forEach((sw,i) => {
-    const st = getStatus(sw.nis);
-    const label = st==='H'?'Hadir':st==='A'?'Alfa':st==='I'?'Izin':st==='S'?'Sakit':'Belum diisi';
-    const mapel = sw.kelas.startsWith('X ') ? sesi.x : sesi.xi;
-    
-    dataSiswa.push([
-      i+1, sw.nis, sw.nama, sw.kelas, label, mapel, d.hari, `Sesi ${currentSesi}`, loggedInPengawas
-    ]);
-
-    if(st==='H') h++;
-    else if(st==='S') sakit.push(sw.nama);
-    else if(st==='I') izin.push(sw.nama);
-    else if(st==='A') alfa.push(sw.nama);
-    else belumDiisi++;
-  });
-
-  let dataRekap = [
-    ["REKAP ABSENSI ASAT 2026", ""],
-    ["Ruang", currentRoom],
-    ["Hari/Tanggal", d.hari],
-    ["Sesi", `Sesi ${currentSesi} (${sesi.waktu})`],
-    ["Pengawas", loggedInPengawas],
-    ["", ""],
-    ["KETERANGAN", "JUMLAH / DAFTAR NAMA"],
-    ["Jumlah Hadir", h]
-  ];
-
-  if(sakit.length > 0) dataRekap.push(["Sakit", `${sakit.length} siswa: ${sakit.join(', ')}`]);
-  if(izin.length > 0) dataRekap.push(["Izin", `${izin.length} siswa: ${izin.join(', ')}`]);
-  if(alfa.length > 0) dataRekap.push(["Alfa", `${alfa.length} siswa: ${alfa.join(', ')}`]);
-  if(sakit.length === 0 && izin.length === 0 && alfa.length === 0) dataRekap.push(["Tidak Hadir", "Nihil"]);
-  if(belumDiisi > 0) dataRekap.push(["Belum Diabsen", `${belumDiisi} siswa`]);
-
-  const wb = XLSX.utils.book_new();
-  const ws1 = XLSX.utils.aoa_to_sheet(dataSiswa);
-  const ws2 = XLSX.utils.aoa_to_sheet(dataRekap);
-
-  ws1['!cols'] = [{wch:5}, {wch:12}, {wch:35}, {wch:10}, {wch:12}, {wch:20}, {wch:20}, {wch:10}, {wch:25}];
-  ws2['!cols'] = [{wch:20}, {wch:70}];
-
-  XLSX.utils.book_append_sheet(wb, ws1, "Data Absensi");
-  XLSX.utils.book_append_sheet(wb, ws2, "Rekapitulasi");
-
-  XLSX.writeFile(wb, `Absensi_R${currentRoom}_${d.tgl}_S${currentSesi}.xlsx`);
-  showToast('⬇ File Excel berhasil diunduh');
-}
-
-function copyRekapWA() {
-  const room = ROOMS[currentRoom];
-  const d = SCHEDULE[currentDay];
-  const sesi = d.sesi[currentSesi-1];
-  
-  let h=0;
-  let sakit = [], izin = [], alfa = [];
-  let belumDiisi = 0;
-
-  room.siswa.forEach(sw => {
-    const st = getStatus(sw.nis);
-    if(st==='H') h++;
-    else if(st==='S') sakit.push(sw.nama);
-    else if(st==='I') izin.push(sw.nama);
-    else if(st==='A') alfa.push(sw.nama);
-    else belumDiisi++;
-  });
-
-  if(belumDiisi > 0) {
-      showToast(`Catatan: Ada ${belumDiisi} siswa yang belum diabsen.`);
-  }
-
-  let txt = `*Rekap Absensi ASAT 2026*\n`;
-  txt += `Ruang: ${currentRoom}\n`;
-  txt += `Hari/Tgl: ${d.hari}\n`;
-  txt += `Sesi: ${currentSesi} (${sesi.waktu})\n`;
-  txt += `Pengawas: ${loggedInPengawas}\n\n`;
-
-  txt += `Jumlah yang hadir : ${h}\n`;
-  
-  let listTidakHadir = [];
-  if(sakit.length > 0) listTidakHadir.push(`${sakit.length} sakit, ${sakit.join(', ')}`);
-  if(alfa.length > 0) listTidakHadir.push(`${alfa.length} alfa, ${alfa.join(', ')}`);
-  if(izin.length > 0) listTidakHadir.push(`${izin.length} izin, ${izin.join(', ')}`);
-
-  if(listTidakHadir.length > 0) {
-      txt += `Yang tidak hadir : ${listTidakHadir[0]}\n`;
-      for(let i=1; i<listTidakHadir.length; i++) {
-          txt += `${listTidakHadir[i]}\n`;
-      }
-  } else {
-      txt += `Yang tidak hadir : Nihil\n`;
-  }
-
-  const textArea = document.createElement("textarea");
-  textArea.value = txt;
-  document.body.appendChild(textArea);
-  textArea.select();
-  
-  try {
-    document.execCommand('copy');
-    showToast('📋 Rekap disalin! Silakan paste/tempel di WA.');
-  } catch (err) {
-    showToast('Gagal menyalin. Mengunduh file TXT...');
-    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const aElem = document.createElement('a');
-    aElem.href = url;
-    aElem.download = `Rekap_WA_R${currentRoom}_${d.tgl}_S${currentSesi}.txt`;
-    aElem.click();
-    window.URL.revokeObjectURL(url);
-  }
-  
-  document.body.removeChild(textArea);
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2500);
-}
 
 function initApp() {
   const tabs = document.getElementById('roomTabs');
@@ -956,9 +557,7 @@ function initApp() {
   selectRoom(initialRoom);
 }
 
-// Attach functions to window object so inline HTML onclick events can find them
-window.doLogin = doLogin;
-window.toggleLoginMode = toggleLoginMode;
+// Buka fungsi agar bisa dipanggil dari HTML onclick
 window.setAllHadir = setAllHadir;
 window.resetRoom = resetRoom;
 window.printAbsensi = printAbsensi;
